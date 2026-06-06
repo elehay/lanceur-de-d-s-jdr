@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taverne des Aventuriers</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --crimson: #8b1a1a;
+    --dark: #0d0a07;
+    --panel: #13100a;
+    --parchment: #f5e6c8;
+    --ink: #2a1a0e;
+    --border: rgba(201,168,76,0.25);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    min-height: 100vh;
+    background: var(--dark);
+    background-image:
+      radial-gradient(ellipse at 15% 30%, rgba(139,26,26,0.2) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 70%, rgba(201,168,76,0.08) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M0 0h80v80H0z' fill='none'/%3E%3Ccircle cx='40' cy='40' r='0.5' fill='%23ffffff06'/%3E%3C/svg%3E");
+    font-family: 'Crimson Text', serif;
+    color: var(--parchment);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 520px;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(30px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .torch { font-size: 2rem; animation: flicker 2s ease-in-out infinite alternate; }
+  @keyframes flicker {
+    0%   { opacity:0.8; text-shadow: 0 0 10px orange; }
+    50%  { opacity:1;   text-shadow: 0 0 25px orange, 0 0 50px rgba(255,165,0,0.4); }
+    100% { opacity:0.85; text-shadow: 0 0 15px orange; }
+  }
+
+  h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(1.4rem, 5vw, 2.2rem);
+    color: var(--gold);
+    text-shadow: 2px 2px 0 var(--crimson), 0 0 30px rgba(201,168,76,0.3);
+    margin: 0.5rem 0 0.3rem;
+  }
+
+  .subtitle {
+    font-style: italic;
+    color: rgba(245,230,200,0.5);
+    font-size: 1rem;
+  }
+
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 1.2rem 0;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(201,168,76,0.1);
+  }
+
+  .field-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  .field { margin-bottom: 1.4rem; }
+
+  input[type="text"], select {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--parchment);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-family: 'Crimson Text', serif;
+    font-size: 1.05rem;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  input[type="text"]:focus, select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+  }
+
+  select option { background: #1a1208; }
+
+  .select-wrapper {
+    position: relative;
+  }
+  .select-wrapper::after {
+    content: '▾';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gold);
+    pointer-events: none;
+  }
+
+  /* Character preview card */
+  #charPreview {
+    display: none;
+    background: rgba(201,168,76,0.05);
+    border: 1px solid rgba(201,168,76,0.15);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.4rem;
+    animation: fadeUp 0.3s ease;
+  }
+
+  #charPreview.visible { display: block; }
+
+  .char-name-preview {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    color: var(--gold-light);
+    margin-bottom: 0.6rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 1rem;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+
+  .stat-name { color: rgba(245,230,200,0.6); font-style: italic; }
+  .stat-val  { font-family: 'Cinzel', serif; font-size: 0.9rem; }
+
+  .btn-enter {
+    width: 100%;
+    background: linear-gradient(135deg, #7a1414, #5c0f0f);
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold-light);
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    padding: 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(139,26,26,0.4);
+  }
+
+  .btn-enter:hover {
+    background: linear-gradient(135deg, #9a1a1a, #7a1414);
+    box-shadow: 0 6px 30px rgba(139,26,26,0.6);
+    transform: translateY(-2px);
+  }
+
+  .btn-enter:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .footer-note {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: rgba(245,230,200,0.3);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="torch">🕯️</div>
+    <h1>Taverne des Aventuriers</h1>
+    <p class="subtitle">Identifiez-vous avant d'entrer</p>
+    <div class="divider"></div>
+  </header>
+
+  <div class="panel">
+    <div class="field">
+      <label class="field-label" for="playerName">Votre nom de joueur</label>
+      <input type="text" id="playerName" placeholder="Ex: Galadrond le Sage…" maxlength="24" oninput="checkReady()">
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="charSelect">Choisir votre personnage</label>
+      <div class="select-wrapper">
+        <select id="charSelect" onchange="onCharSelect()">
+          <option value="">— Sélectionner un personnage —</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="charPreview">
+      <div class="char-name-preview" id="previewName"></div>
+      <div class="stats-grid" id="previewStats"></div>
+    </div>
+
+    <button class="btn-enter" id="enterBtn" onclick="enterGame()" disabled>
+      ⚔️ &nbsp; Rejoindre la partie
+    </button>
+  </div>
+
+  <p class="footer-note">Parlez, ami, et entrez.</p>
+</div>
+
+<script>
+// ============================================================
+//  DONNÉES DES PERSONNAGES
+//  → Modifie cette liste pour ajouter/changer des personnages
+// ============================================================
+const CHARACTERS = [
+  {
+    id: "thorin",
+    name: "Thorin Martelofer",
+    class: "Guerrier Nain",
+    color: "#c94a4a",           // couleur du pion sur le plateau
+    avatar: "⚒️",
+    stats: { force:18, agilite:8, perception:10, dexterite:9, charisme:11, intelligence:10, sagesse:12, chance:8 }
+  },
+  {
+    id: "elawyn",
+    name: "Elawyn Venteclair",
+    class: "Rôdeuse Elfe",
+    color: "#4a8fc9",
+    avatar: "🏹",
+    stats: { force:10, agilite:18, perception:16, dexterite:17, charisme:13, intelligence:14, sagesse:14, chance:12 }
+  },
+  {
+    id: "mira",
+    name: "Mira Soufflerose",
+    class: "Sorcière Halfeline",
+    color: "#9c4ac9",
+    avatar: "🔮",
+    stats: { force:7, agilite:14, perception:13, dexterite:14, charisme:16, intelligence:18, sagesse:15, chance:16 }
+  },
+  {
+    id: "balgar",
+    name: "Balgar l'Impur",
+    class: "Paladin Déchu",
+    color: "#c97f4a",
+    avatar: "🗡️",
+    stats: { force:16, agilite:10, perception:11, dexterite:11, charisme:14, intelligence:12, sagesse:9, chance:6 }
+  },
+];
+
+// ============================================================
+//  COULEURS DES STATS  (partagées avec game.html)
+// ============================================================
+const STAT_COLORS = {
+  force:        { color: '#e05555', label: 'Force' },
+  agilite:      { color: '#8B4513', label: 'Agilité' },
+  perception:   { color: '#9b59b6', label: 'Perception' },
+  dexterite:    { color: '#e67e22', label: 'Dextérité' },
+  charisme:     { color: '#f1c40f', label: 'Charisme' },
+  intelligence: { color: '#27ae60', label: 'Intelligence' },
+  sagesse:      { color: '#3498db', label: 'Sagesse' },
+  chance:       { color: '#ecf0f1', label: 'Chance' },
+};
+
+// Init select
+const sel = document.getElementById('charSelect');
+CHARACTERS.forEach(c => {
+  const opt = document.createElement('option');
+  opt.value = c.id;
+  opt.textContent = `${c.avatar} ${c.name} — ${c.class}`;
+  sel.appendChild(opt);
+});
+
+function onCharSelect() {
+  const id = sel.value;
+  const prev = document.getElementById('charPreview');
+  if (!id) { prev.classList.remove('visible'); checkReady(); return; }
+
+  const char = CHARACTERS.find(c => c.id === id);
+  document.getElementById('previewName').textContent = `${char.avatar} ${char.name}`;
+
+  const grid = document.getElementById('previewStats');
+  grid.innerHTML = Object.entries(char.stats).map(([key, val]) => {
+    const sc = STAT_COLORS[key];
+    return `<div class="stat-row">
+      <span class="stat-name">${sc.label}</span>
+      <span class="stat-val" style="color:${sc.color}">${val}</span>
+    </div>`;
+  }).join('');
+
+  prev.classList.add('visible');
+  checkReady();
+}
+
+function checkReady() {
+  const name = document.getElementById('playerName').value.trim();
+  const char = sel.value;
+  document.getElementById('enterBtn').disabled = !(name && char);
+}
+
+function enterGame() {
+  const playerName = document.getElementById('playerName').value.trim();
+  const charId = sel.value;
+  if (!playerName || !charId) return;
+
+  // Stocker en sessionStorage pour la page de jeu
+  sessionStorage.setItem('playerName', playerName);
+  sessionStorage.setItem('charId', charId);
+  sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+  sessionStorage.setItem('statColors', JSON.stringify(STAT_COLORS));
+
+  window.location.href = 'game.html';
+}
+</script>
+</body>
+</html>

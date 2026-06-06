@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plateau de Jeu</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE CONFIGURATION
+     ───────────────────────────────────────────────────────────
+     1. Va sur https://console.firebase.google.com
+     2. Crée un projet (gratuit)
+     3. Ajoute une appli Web (bouton </>)
+     4. Active "Realtime Database" dans la console Firebase
+        - Choisis un emplacement (ex: europe-west1)
+        - Commence en "mode test" (lecture/écriture ouvertes)
+     5. Remplace les valeurs ci-dessous par ta propre config
+        (disponible dans Paramètres du projet → Général → Vos applications)
+     ═══════════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue, remove, push, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ── ⚠️  REMPLACE CES VALEURS PAR TA CONFIG FIREBASE ──────────
+  const firebaseConfig = {
+    apiKey:            "VOTRE_API_KEY",
+    authDomain:        "VOTRE_PROJECT.firebaseapp.com",
+    databaseURL:       "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:         "VOTRE_PROJECT",
+    storageBucket:     "VOTRE_PROJECT.appspot.com",
+    messagingSenderId: "VOTRE_SENDER_ID",
+    appId:             "VOTRE_APP_ID"
+  };
+  // ─────────────────────────────────────────────────────────────
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // Expose db & helpers to global scope for the rest of the page
+  window._db = db;
+  window._ref = ref;
+  window._set = set;
+  window._onValue = onValue;
+  window._remove = remove;
+  window._push = push;
+  window._serverTimestamp = serverTimestamp;
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event('firebaseReady'));
+</script>
+
+<style>
+:root {
+  --gold: #c9a84c;
+  --gold-light: #f0d080;
+  --crimson: #8b1a1a;
+  --dark: #0a0806;
+  --panel: rgba(13,10,7,0.92);
+  --parchment: #f5e6c8;
+  --border: rgba(201,168,76,0.22);
+  --hud-h: 140px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body { width:100%; height:100%; overflow:hidden; }
+
+body {
+  background: #000;
+  font-family: 'Crimson Text', serif;
+  color: var(--parchment);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOP BAR ── */
+#topBar {
+  height: 48px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.2rem;
+  flex-shrink: 0;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+}
+
+#topBar .title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.85rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+
+#topBar .player-info {
+  font-size: 0.9rem;
+  color: rgba(245,230,200,0.7);
+}
+
+#topBar .player-info strong { color: var(--gold-light); }
+
+/* ── BOARD AREA ── */
+#boardWrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#boardImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* Image par défaut — remplace src par ton image ou utilise setImage() */
+}
+
+#boardCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;   /* les dés flottent au-dessus */
+  z-index: 2;
+}
+
+/* Pions des joueurs */
+.pion {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  transition: transform 0.15s;
+  user-select: none;
+}
+.pion:hover { transform: translate(-50%, -50%) scale(1.15); }
+.pion-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  color: white;
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── FLOATING DICE ── */
+.floating-die {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.7);
+  border: 2px solid rgba(255,255,255,0.25);
+}
+
+/* Rolling animation */
+@keyframes dieRoll {
+  0%   { transform: rotate(0deg) scale(0.4); opacity: 0; }
+  30%  { transform: rotate(540deg) scale(1.2); opacity: 1; }
+  60%  { transform: rotate(900deg) scale(0.95); }
+  80%  { transform: rotate(1050deg) scale(1.05); }
+  100% { transform: rotate(1080deg) scale(1); opacity: 1; }
+}
+
+.floating-die.rolling {
+  animation: dieRoll 0.9s cubic-bezier(0.25,0.46,0.45,0.94) both;
+}
+
+/* Crit / fumble glow */
+.floating-die.crit  { box-shadow: 0 0 20px 4px rgba(255,220,80,0.7),  0 6px 20px rgba(0,0,0,0.7); }
+.floating-die.fumble{ box-shadow: 0 0 20px 4px rgba(255,60,60,0.7),   0 6px 20px rgba(0,0,0,0.7); }
+
+/* Initiator label on die */
+.die-owner {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.5rem;
+  font-family: 'Cinzel', serif;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000;
+}
+
+/* ── BOTTOM HUD ── */
+#hud {
+  height: var(--hud-h);
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+}
+
+#hud::-webkit-scrollbar { height: 4px; }
+#hud::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+
+/* Stat button */
+.stat-btn {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(0,0,0,0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  min-width: 72px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--btn-color);
+  opacity: 0.12;
+  transition: opacity 0.18s;
+}
+
+.stat-btn:hover::before { opacity: 0.25; }
+.stat-btn:hover { transform: translateY(-3px); border-color: var(--btn-color); }
+.stat-btn:active { transform: translateY(0) scale(0.95); }
+
+.stat-btn .die-face {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--btn-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(0,0,0,0.85);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+}
+
+.stat-btn .stat-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--btn-color);
+  text-transform: uppercase;
+}
+
+.stat-btn .stat-score {
+  font-size: 0.75rem;
+  color: rgba(245,230,200,0.55);
+  font-style: italic;
+}
+
+/* Separator */
+.hud-sep {
+  width: 1px;
+  height: 70px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Clear button */
+.btn-clear {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(139,26,26,0.2);
+  border: 1px solid rgba(139,26,26,0.4);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  color: #e05555;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-width: 72px;
+}
+
+.btn-clear:hover {
+  background: rgba(139,26,26,0.4);
+  transform: translateY(-3px);
+}
+
+.btn-clear .icon { font-size: 1.4rem; }
+
+/* Last roll info */
+#lastRollInfo {
+  flex-shrink: 0;
+  max-width: 140px;
+  text-align: center;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: rgba(245,230,200,0.45);
+  padding: 0 0.5rem;
+  line-height: 1.4;
+}
+
+/* Connection status */
+#connStatus {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  font-size: 0.72rem;
+  font-family: 'Cinzel', serif;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  z-index: 99;
+  transition: all 0.3s;
+}
+#connStatus.ok   { background: rgba(39,174,96,0.2);  color: #2ecc71; border:1px solid rgba(39,174,96,0.3); }
+#connStatus.err  { background: rgba(231,76,60,0.2);  color: #e74c3c; border:1px solid rgba(231,76,60,0.3); }
+#connStatus.demo { background: rgba(243,156,18,0.2); color: #f39c12; border:1px solid rgba(243,156,18,0.3); }
+
+/* Blocked overlay if not logged in */
+#loginBlock {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.2rem;
+  color: var(--gold);
+  text-align: center;
+  flex-direction: column;
+  gap: 1rem;
+}
+</style>
+</head>
+<body>
+
+<!-- Login guard -->
+<div id="loginBlock" style="display:none">
+  <div>⚔️</div>
+  <div>Vous n'êtes pas connecté.</div>
+  <a href="index.html" style="font-size:0.9rem;color:var(--gold-light);font-family:'Crimson Text',serif;font-style:italic">
+    → Retourner à la taverne
+  </a>
+</div>
+
+<!-- Connection status badge -->
+<div id="connStatus" class="demo">Mode local</div>
+
+<!-- Top bar -->
+<div id="topBar">
+  <div class="title">⚔️ Plateau de Jeu</div>
+  <div class="player-info" id="playerInfoBar"></div>
+</div>
+
+<!-- Board -->
+<div id="boardWrapper">
+  <!--
+    IMAGE DU PLATEAU
+    ── Option A : image locale → place ton fichier map.jpg dans le même dossier
+       <img id="boardImg" src="map.jpg" alt="plateau">
+    ── Option B : URL externe
+       <img id="boardImg" src="https://…" alt="plateau">
+    ── Option C : le MJ change l'image dynamiquement via Firebase (voir setImage())
+  -->
+  <img id="boardImg" src=""
+       alt="Plateau de jeu"
+       style="background:linear-gradient(135deg,#1a1208,#0a0806);width:100%;height:100%;object-fit:cover;">
+
+  <!-- Pions & dés flottants injectés ici par JS -->
+</div>
+
+<!-- HUD bottom -->
+<div id="hud">
+  <!-- Généré par JS selon le personnage -->
+  <div id="lastRollInfo">Lance un dé pour commencer…</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIQUE PRINCIPALE
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+// ─── Session data ────────────────────────────────────────────
+const playerName = sessionStorage.getItem('playerName');
+const charId     = sessionStorage.getItem('charId');
+const CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
+const STAT_COLORS= JSON.parse(sessionStorage.getItem('statColors') || '{}');
+
+if (!playerName || !charId || !CHARACTERS.length) {
+  document.getElementById('loginBlock').style.display = 'flex';
+}
+
+const myChar = CHARACTERS.find(c => c.id === charId) || {};
+
+// ─── Positions initiales des pions (% du plateau) ─────────
+//     Modifie ces valeurs pour placer les pions au départ
+const PION_POSITIONS = {
+  thorin:  { x: 30, y: 50 },
+  elawyn:  { x: 50, y: 30 },
+  mira:    { x: 70, y: 60 },
+  balgar:  { x: 40, y: 70 },
+};
+
+// ─── State local ─────────────────────────────────────────────
+let diceOnBoard = {};    // { dieId: { x, y, value, stat, color, owner } }
+let pionsOnBoard = {};   // { charId: { x, y } }
+let useFirebase = false;
+
+// ─── Player info bar ─────────────────────────────────────────
+document.getElementById('playerInfoBar').innerHTML =
+  `<strong>${myChar.avatar || '⚔️'} ${myChar.name || ''}</strong>&nbsp;— ${playerName}`;
+
+// ─── Build HUD ───────────────────────────────────────────────
+function buildHud() {
+  const hud = document.getElementById('hud');
+  hud.innerHTML = '';
+
+  if (!myChar.stats) return;
+
+  Object.entries(myChar.stats).forEach(([key, val]) => {
+    const sc = STAT_COLORS[key] || { color:'#aaa', label: key };
+    const btn = document.createElement('button');
+    btn.className = 'stat-btn';
+    btn.style.setProperty('--btn-color', sc.color);
+    btn.title = `Lancer D20 pour ${sc.label} (score: ${val})`;
+    btn.innerHTML = `
+      <div class="die-face">D20</div>
+      <div class="stat-label">${sc.label}</div>
+      <div class="stat-score">${val}</div>
+    `;
+    btn.addEventListener('click', () => rollStat(key, sc.color, sc.label, val));
+    hud.appendChild(btn);
+  });
+
+  // Separator
+  const sep = document.createElement('div');
+  sep.className = 'hud-sep';
+  hud.appendChild(sep);
+
+  // Clear button
+  const clr = document.createElement('button');
+  clr.className = 'btn-clear';
+  clr.innerHTML = `<div class="icon">🧹</div><div>Fin d'action</div>`;
+  clr.addEventListener('click', clearAllDice);
+  hud.appendChild(clr);
+
+  // Last roll info
+  const info = document.createElement('div');
+  info.id = 'lastRollInfo';
+  info.textContent = 'Lance un dé pour commencer…';
+  hud.appendChild(info);
+}
+
+// ─── Roll a stat ─────────────────────────────────────────────
+function rollStat(statKey, color, label, score) {
+  const value = Math.floor(Math.random() * 20) + 1;
+  const dieId = `die_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+
+  // Random position on board (avoid edges)
+  const board = document.getElementById('boardWrapper');
+  const bw = board.clientWidth;
+  const bh = board.clientHeight;
+  const margin = 60;
+  const x = margin + Math.random() * (bw - margin * 2);
+  const y = margin + Math.random() * (bh - margin * 2 - 140); // avoid hud area
+
+  const dieData = {
+    id:    dieId,
+    x, y,
+    value,
+    stat:  statKey,
+    label,
+    color,
+    score,
+    owner: playerName,
+    char:  myChar.name,
+    ts:    Date.now()
+  };
+
+  if (useFirebase) {
+    pushDieToFirebase(dieData);
+  } else {
+    // Demo mode: just local
+    diceOnBoard[dieId] = dieData;
+    renderDie(dieData, true);
+  }
+
+  // Update last roll info
+  const info = document.getElementById('lastRollInfo');
+  if (info) {
+    const isCrit   = value === 20;
+    const isFumble = value === 1;
+    info.innerHTML = `<span style="color:${color};font-family:'Cinzel',serif;font-size:1rem">${label}</span><br>
+      <span style="font-size:1.3rem;color:${isCrit?'#f0d080':isFumble?'#e05555':color};font-family:'Cinzel',serif">${value}</span>
+      ${isCrit?'<br><span style="color:#f0d080;font-size:0.8rem">✦ CRITIQUE !</span>':''}
+      ${isFumble?'<br><span style="color:#e05555;font-size:0.8rem">✗ FUMBLE !</span>':''}`;
+  }
+}
+
+// ─── Render a die on the board ───────────────────────────────
+function renderDie(die, animate = false) {
+  // Remove if already exists
+  const old = document.getElementById(die.id);
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.className = 'floating-die' + (die.value === 20 ? ' crit' : die.value === 1 ? ' fumble' : '');
+  el.id = die.id;
+  el.style.cssText = `
+    left: ${die.x}px; top: ${die.y}px;
+    background: ${die.color};
+    color: ${getContrastColor(die.color)};
+  `;
+
+  el.innerHTML = `
+    ${die.value}
+    <span class="die-owner">${die.owner}</span>
+  `;
+
+  if (animate) el.classList.add('rolling');
+  el.addEventListener('animationend', () => el.classList.remove('rolling'), { once: true });
+
+  document.getElementById('boardWrapper').appendChild(el);
+}
+
+// ─── Clear all dice ──────────────────────────────────────────
+function clearAllDice() {
+  if (useFirebase) {
+    clearDiceFirebase();
+  } else {
+    diceOnBoard = {};
+    document.querySelectorAll('.floating-die').forEach(el => el.remove());
+  }
+  const info = document.getElementById('lastRollInfo');
+  if (info) info.textContent = 'Lance un dé pour commencer…';
+}
+
+// ─── Render all pions ────────────────────────────────────────
+function renderPions(positions) {
+  document.querySelectorAll('.pion').forEach(el => el.remove());
+
+  CHARACTERS.forEach(char => {
+    const pos = (positions && positions[char.id]) || PION_POSITIONS[char.id] || { x: 50, y: 50 };
+    const board = document.getElementById('boardWrapper');
+    const bw = board.clientWidth || 800;
+    const bh = board.clientHeight || 600;
+    const px = (pos.x / 100) * bw;
+    const py = (pos.y / 100) * bh;
+
+    const pion = document.createElement('div');
+    pion.className = 'pion';
+    pion.id = `pion_${char.id}`;
+    pion.style.cssText = `left:${px}px; top:${py}px; background:${char.color};`;
+    pion.innerHTML = `${char.avatar}<span class="pion-label">${char.name.split(' ')[0]}</span>`;
+
+    // Drag to move own pion
+    if (char.id === charId) makeDraggable(pion, char.id);
+
+    board.appendChild(pion);
+  });
+}
+
+// ─── Drag pion ───────────────────────────────────────────────
+function makeDraggable(el, cid) {
+  let dragging = false, sx, sy, ox, oy;
+  el.style.cursor = 'grab';
+
+  el.addEventListener('mousedown', e => {
+    dragging = true;
+    sx = e.clientX; sy = e.clientY;
+    ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+    el.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    el.style.left = (ox + dx) + 'px';
+    el.style.top  = (oy + dy) + 'px';
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.cursor = 'grab';
+    const board = document.getElementById('boardWrapper');
+    const bw = board.clientWidth, bh = board.clientHeight;
+    const nx = parseFloat(el.style.left) / bw * 100;
+    const ny = parseFloat(el.style.top)  / bh * 100;
+    if (useFirebase) updatePionFirebase(cid, nx, ny);
+  });
+}
+
+// ─── Contrast color helper ───────────────────────────────────
+function getContrastColor(hex) {
+  if (!hex || hex[0] !== '#') return '#000';
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return (0.299*r + 0.587*g + 0.114*b) > 140 ? '#111' : '#fff';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FIREBASE INTEGRATION
+// ═══════════════════════════════════════════════════════════
+function initFirebase() {
+  const db  = window._db;
+  const ref  = window._ref;
+  const set  = window._set;
+  const onValue = window._onValue;
+  const remove  = window._remove;
+
+  useFirebase = true;
+  document.getElementById('connStatus').className = 'ok';
+  document.getElementById('connStatus').textContent = '● Connecté';
+
+  // ── Listen: dice ──
+  const diceRef = ref(db, 'session/dice');
+  onValue(diceRef, snap => {
+    document.querySelectorAll('.floating-die').forEach(el => el.remove());
+    const data = snap.val() || {};
+    diceOnBoard = data;
+    Object.values(data).forEach(die => renderDie(die, false));
+  });
+
+  // ── Listen: pions ──
+  const pionsRef = ref(db, 'session/pions');
+  onValue(pionsRef, snap => {
+    const data = snap.val() || {};
+    pionsOnBoard = data;
+    renderPions(data);
+  });
+
+  // ── Listen: board image ──
+  const imgRef = ref(db, 'session/boardImage');
+  onValue(imgRef, snap => {
+    const url = snap.val();
+    if (url) document.getElementById('boardImg').src = url;
+  });
+
+  // Register presence (pion position at start)
+  const myPos = PION_POSITIONS[charId] || { x: 50, y: 50 };
+  updatePionFirebase(charId, myPos.x, myPos.y);
+
+  window._pushDieToFirebase  = pushDieToFirebase;
+  window._clearDiceFirebase  = clearDiceFirebase;
+  window._updatePionFirebase = updatePionFirebase;
+
+  function pushDieToFirebase(die) {
+    const dieRef = ref(db, `session/dice/${die.id}`);
+    set(dieRef, die);
+  }
+
+  function clearDiceFirebase() {
+    const diceRef = ref(db, 'session/dice');
+    remove(diceRef);
+  }
+
+  function updatePionFirebase(cid, x, y) {
+    const p = ref(db, `session/pions/${cid}`);
+    set(p, { x, y });
+  }
+}
+
+function pushDieToFirebase(die)         { if (window._pushDieToFirebase)  window._pushDieToFirebase(die); }
+function clearDiceFirebase()            { if (window._clearDiceFirebase)   window._clearDiceFirebase(); }
+function updatePionFirebase(cid, x, y) { if (window._updatePionFirebase)  window._updatePionFirebase(cid,x,y); }
+
+// ─── Wait for Firebase or fallback ───────────────────────────
+document.addEventListener('firebaseReady', () => {
+  try {
+    if (window._db && window._firebaseConfig_isReal !== false) {
+      initFirebase();
+    }
+  } catch(e) {
+    console.warn('Firebase init failed, demo mode.', e);
+    showDemoMode();
+  }
+});
+
+// If Firebase module fails to load (bad config), keep demo mode
+setTimeout(() => {
+  if (!useFirebase) showDemoMode();
+}, 3000);
+
+function showDemoMode() {
+  document.getElementById('connStatus').className = 'demo';
+  document.getElementById('connStatus').textContent = '⚡ Mode démo (local)';
+  // In demo mode, render pions at default positions
+  renderPions(PION_POSITIONS);
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+buildHud();
+
+// Render pions once board is sized
+window.addEventListener('load', () => {
+  if (!useFirebase) renderPions(PION_POSITIONS);
+});
+window.addEventListener('resize', () => {
+  if (!useFirebase) renderPions(PION_POSITIONS);
+});
+</script>
+</body>
+</html>
