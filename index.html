@@ -252,8 +252,9 @@ const CHARACTERS = [
     id: "thorin",
     name: "Thorin Martelofer",
     class: "Guerrier Nain",
-    color: "#c94a4a",           // couleur du pion sur le plateau
+    color: "#c94a4a",
     avatar: "⚒️",
+    hp: 30, hpMax: 30,   // ← Points de vie actuels / maximum
     stats: { force:18, agilite:8, perception:10, dexterite:9, charisme:11, intelligence:10, sagesse:12, chance:8 }
   },
   {
@@ -262,6 +263,7 @@ const CHARACTERS = [
     class: "Rôdeuse Elfe",
     color: "#4a8fc9",
     avatar: "🏹",
+    hp: 22, hpMax: 22,
     stats: { force:10, agilite:18, perception:16, dexterite:17, charisme:13, intelligence:14, sagesse:14, chance:12 }
   },
   {
@@ -270,6 +272,7 @@ const CHARACTERS = [
     class: "Sorcière Halfeline",
     color: "#9c4ac9",
     avatar: "🔮",
+    hp: 18, hpMax: 18,
     stats: { force:7, agilite:14, perception:13, dexterite:14, charisme:16, intelligence:18, sagesse:15, chance:16 }
   },
   {
@@ -278,6 +281,7 @@ const CHARACTERS = [
     class: "Paladin Déchu",
     color: "#c97f4a",
     avatar: "🗡️",
+    hp: 26, hpMax: 26,
     stats: { force:16, agilite:10, perception:11, dexterite:11, charisme:14, intelligence:12, sagesse:9, chance:6 }
   },
 ];
@@ -314,13 +318,18 @@ function onCharSelect() {
   document.getElementById('previewName').textContent = `${char.avatar} ${char.name}`;
 
   const grid = document.getElementById('previewStats');
+  // Stats + ligne PV
+  const hpRow = `<div class="stat-row" style="grid-column:1/-1;border-top:1px solid rgba(201,168,76,0.15);padding-top:0.4rem;margin-top:0.2rem">
+    <span class="stat-name">Points de vie</span>
+    <span class="stat-val" style="color:#e05555">♥ ${char.hp ?? char.hpMax ?? '?'} / ${char.hpMax ?? '?'}</span>
+  </div>`;
   grid.innerHTML = Object.entries(char.stats).map(([key, val]) => {
     const sc = STAT_COLORS[key];
     return `<div class="stat-row">
       <span class="stat-name">${sc.label}</span>
       <span class="stat-val" style="color:${sc.color}">${val}</span>
     </div>`;
-  }).join('');
+  }).join('') + hpRow;
 
   prev.classList.add('visible');
   checkReady();
