@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plateau de Jeu</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  
+
 <!-- Firebase SDK (compat mode = pas de "import", fonctionne partout) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -77,6 +77,31 @@ body {
 .hp-text { font-family:'Cinzel',serif; font-size:0.78rem; color:#ccc; }
 .hp-text .cur { color:#f5e6c8; }
 .hp-text .max { color:rgba(245,230,200,0.45); }
+
+/* ── SHEET PILLS ── */
+.sheet-pills { display:flex; align-items:center; gap:0.35rem; flex-shrink:0; }
+.sheet-pill {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  opacity: 0.6;
+  position: relative;
+}
+.sheet-pill:hover  { opacity:1; transform:scale(1.12); border-color:var(--gold); }
+.sheet-pill.self   { opacity:1; border-color:var(--gold); box-shadow:0 0 8px rgba(201,168,76,0.35); }
+.sheet-pill-tip {
+  position: absolute; bottom:-20px; left:50%; transform:translateX(-50%);
+  background: rgba(0,0,0,0.88); color:var(--parchment);
+  font-size: 0.52rem; font-family:'Cinzel',serif;
+  white-space:nowrap; padding:2px 5px; border-radius:4px;
+  pointer-events:none; opacity:0; transition:opacity 0.15s;
+}
+.sheet-pill:hover .sheet-pill-tip { opacity:1; }
 
 /* connection badge */
 #connStatus {
@@ -345,6 +370,8 @@ body {
 <div id="topBar">
   <div class="title">⚔️ Plateau de Jeu</div>
   <div id="playerChip" class="player-chip"></div>
+  <!-- Fiche personnage : un bouton par perso -->
+  <div class="sheet-pills" id="sheetPills"></div>
   <div id="connStatus" class="demo">⚡ Local</div>
 </div>
 
@@ -370,14 +397,14 @@ body {
 //  ⚠️  Remplace ces valeurs par ta config Firebase
 //  (Console Firebase → Paramètres projet → Vos applications)
 // ════════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyCA_-IXPsYSZjgAuaZTh0S7BlEVvdGvcsE",
-  authDomain: "jdr-lancer-des.firebaseapp.com",
-  databaseURL: "https://jdr-lancer-des-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "jdr-lancer-des",
-  storageBucket: "jdr-lancer-des.firebasestorage.app",
-  messagingSenderId: "806397430349",
-  appId: "1:806397430349:web:b9ca42182314a983a76a04"
+const FIREBASE_CONFIG = {
+  apiKey:            "VOTRE_API_KEY",
+  authDomain:        "VOTRE_PROJECT.firebaseapp.com",
+  databaseURL:       "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "VOTRE_PROJECT",
+  storageBucket:     "VOTRE_PROJECT.appspot.com",
+  messagingSenderId: "VOTRE_SENDER_ID",
+  appId:             "VOTRE_APP_ID"
 };
 // ════════════════════════════════════════════════════════════
 
@@ -676,12 +703,12 @@ function getContrastColor(hex) {
 // ════════════════════════════════════════════════════════════
 function initFirebase() {
   // Detect placeholder config — skip if not filled
-  if (firebaseConfig.apiKey === 'AIzaSyCA_-IXPsYSZjgAuaZTh0S7BlEVvdGvcsE') {
+  if (FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY') {
     showDemoMode(); return;
   }
 
   try {
-    const app = firebase.initializeApp(firebaseConfig);
+    const app = firebase.initializeApp(FIREBASE_CONFIG);
     fbDB = firebase.database();
 
     useFirebase = true;
@@ -748,9 +775,33 @@ function showDemoMode() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  SHEET PILLS  — un bouton par personnage vers sheet.html
+// ════════════════════════════════════════════════════════════
+function buildSheetPills() {
+  const container = document.getElementById('sheetPills');
+  if (!container || !CHARACTERS.length) return;
+  container.innerHTML = '';
+  CHARACTERS.forEach(char => {
+    const pill = document.createElement('a');
+    pill.className = 'sheet-pill' + (char.id === charId ? ' self' : '');
+    pill.style.background = char.color + '2a';
+    pill.style.borderColor = char.id === charId ? char.color : 'rgba(255,255,255,0.18)';
+    pill.href = 'sheet.html';
+    pill.title = char.name;
+    pill.innerHTML = `${char.avatar}<span class="sheet-pill-tip">${char.name.split(' ')[0]}</span>`;
+    // Store which char to show on sheet.html
+    pill.addEventListener('click', () => {
+      sessionStorage.setItem('sheetCharId', char.id);
+    });
+    container.appendChild(pill);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
 //  BOOT
 // ════════════════════════════════════════════════════════════
 buildPlayerChip();
+buildSheetPills();
 buildHud();
 initFirebase();
 
