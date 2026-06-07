@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche Personnage</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #c9a84c;
+  --gold-light: #f0d080;
+  --crimson: #8b1a1a;
+  --dark: #0a0806;
+  --panel: #13100a;
+  --parchment: #f5e6c8;
+  --border: rgba(201,168,76,0.22);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  min-height: 100vh;
+  background: var(--dark);
+  background-image:
+    radial-gradient(ellipse at 10% 20%, rgba(139,26,26,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(201,168,76,0.07) 0%, transparent 50%);
+  font-family: 'Crimson Text', serif;
+  color: var(--parchment);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem 4rem;
+}
+
+/* ── TOP NAV ── */
+#topNav {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(201,168,76,0.07);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.18s;
+}
+.btn-back:hover {
+  background: rgba(201,168,76,0.15);
+  transform: translateX(-2px);
+}
+
+/* Char selector in nav */
+#charSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.char-pill {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0.55;
+}
+.char-pill:hover  { opacity: 0.85; transform: scale(1.1); }
+.char-pill.active { border-color: var(--gold); opacity: 1; box-shadow: 0 0 10px rgba(201,168,76,0.3); }
+
+/* ── HEADER ── */
+.sheet-header {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.5s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.avatar-circle {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(201,168,76,0.2);
+}
+
+.char-titles { flex: 1; }
+.char-titles h1 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(1.1rem, 3.5vw, 1.7rem);
+  color: var(--gold);
+  text-shadow: 1px 1px 0 var(--crimson);
+  margin-bottom: 0.2rem;
+}
+.char-titles .class-tag {
+  font-style: italic;
+  color: rgba(245,230,200,0.55);
+  font-size: 1rem;
+}
+
+/* HP block */
+.hp-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(139,26,26,0.15);
+  border: 1px solid rgba(224,85,85,0.3);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  min-width: 90px;
+}
+.hp-block .hp-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: rgba(224,85,85,0.7);
+  text-transform: uppercase;
+}
+.hp-block .hp-value {
+  font-family: 'Cinzel', serif;
+  font-size: 1.5rem;
+  color: #e05555;
+  line-height: 1;
+}
+.hp-block .hp-max {
+  font-size: 0.8rem;
+  color: rgba(245,230,200,0.35);
+}
+
+/* ── DIVIDER ── */
+.divider {
+  width: 100%;
+  max-width: 700px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin-bottom: 1.8rem;
+}
+
+/* ── STATS SECTION ── */
+.section-title {
+  width: 100%;
+  max-width: 700px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: rgba(201,168,76,0.55);
+  text-transform: uppercase;
+  margin-bottom: 0.9rem;
+}
+
+.stats-wheel {
+  width: 100%;
+  max-width: 700px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  transition: border-color 0.2s, transform 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--stat-color);
+  border-radius: 3px 0 0 3px;
+}
+.stat-card:hover {
+  border-color: var(--stat-color);
+  transform: translateX(3px);
+}
+
+/* Hexagon mini icon */
+.stat-hex {
+  position: relative;
+  width: 40px; height: 40px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.stat-hex svg { position: absolute; inset:0; width:100%; height:100%; }
+.stat-hex .hex-val {
+  position: relative; z-index:2;
+  font-family: 'Cinzel', serif;
+  font-size: 1rem; font-weight: 700;
+  color: rgba(0,0,0,0.85);
+  line-height: 1;
+}
+
+.stat-info { flex: 1; }
+.stat-name-lbl {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--stat-color);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+/* Gauge bar */
+.stat-gauge {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+  margin-top: 0.3rem;
+}
+.stat-gauge-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--stat-color);
+  transition: width 0.6s ease;
+}
+
+/* ── NOTES SECTION ── */
+.notes-area {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.5s 0.2s ease both;
+}
+
+.notes-box {
+  width: 100%;
+  min-height: 120px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  color: var(--parchment);
+  font-family: 'Crimson Text', serif;
+  font-size: 1rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+  line-height: 1.6;
+}
+.notes-box:focus { border-color: var(--gold); }
+.notes-box::placeholder { color: rgba(245,230,200,0.25); font-style: italic; }
+
+.notes-save-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+.btn-save {
+  background: rgba(201,168,76,0.1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.btn-save:hover { background: rgba(201,168,76,0.2); }
+.saved-msg {
+  font-size: 0.75rem;
+  color: #27ae60;
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.3s;
+  margin-right: 0.7rem;
+  align-self: center;
+}
+.saved-msg.show { opacity: 1; }
+
+/* ── EQUIPMENT SECTION ── */
+.equip-grid {
+  width: 100%;
+  max-width: 700px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.5s 0.25s ease both;
+}
+.equip-slot {
+  background: var(--panel);
+  border: 1px dashed rgba(201,168,76,0.2);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: rgba(245,230,200,0.45);
+  font-style: italic;
+}
+.equip-slot .slot-icon { font-size: 1rem; opacity: 0.6; }
+.equip-slot input {
+  flex:1; background:transparent; border:none; outline:none;
+  color: var(--parchment); font-family:'Crimson Text',serif; font-size:0.95rem;
+}
+.equip-slot input::placeholder { color: rgba(245,230,200,0.3); font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div id="topNav">
+  <a class="btn-back" href="game.html">← Retour au plateau</a>
+  <div id="charSwitcher"></div>
+</div>
+
+<!-- HEADER : avatar + nom + HP -->
+<div class="sheet-header">
+  <div class="avatar-circle" id="sheetAvatar"></div>
+  <div class="char-titles">
+    <h1 id="sheetName"></h1>
+    <div class="class-tag" id="sheetClass"></div>
+  </div>
+  <div class="hp-block">
+    <span class="hp-label">♥ Vie</span>
+    <span class="hp-value" id="sheetHpCur">—</span>
+    <span class="hp-max" id="sheetHpMax">/ —</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- STATS -->
+<div class="section-title">Caractéristiques</div>
+<div class="stats-wheel" id="statsWheel"></div>
+
+<!-- ÉQUIPEMENT -->
+<div class="section-title">Équipement</div>
+<div class="equip-grid" id="equipGrid"></div>
+
+<!-- NOTES -->
+<div class="section-title">Notes & Histoire</div>
+<div class="notes-area">
+  <textarea class="notes-box" id="notesBox" placeholder="Antécédents, objectifs, secrets, butin…"></textarea>
+  <div class="notes-save-row">
+    <span class="saved-msg" id="savedMsg">Sauvegardé ✓</span>
+    <button class="btn-save" onclick="saveNotes()">Sauvegarder</button>
+  </div>
+</div>
+
+<script>
+// ── Session ───────────────────────────────────────────────────
+const CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
+const STAT_COLORS = JSON.parse(sessionStorage.getItem('statColors') || '{}');
+let viewedCharId = sessionStorage.getItem('sheetCharId') || sessionStorage.getItem('charId');
+
+const EQUIP_SLOTS = [
+  { icon: '⚔️', label: 'Arme principale' },
+  { icon: '🛡️', label: 'Bouclier / Arme 2' },
+  { icon: '🪖', label: 'Armure / Tête' },
+  { icon: '👟', label: 'Bottes / Pieds' },
+  { icon: '💍', label: 'Anneau 1' },
+  { icon: '💍', label: 'Anneau 2' },
+  { icon: '🎒', label: 'Sac / Accessoire' },
+  { icon: '✨', label: 'Objet magique' },
+];
+
+// ── Build character switcher pills ───────────────────────────
+function buildSwitcher() {
+  const sw = document.getElementById('charSwitcher');
+  sw.innerHTML = '';
+  CHARACTERS.forEach(c => {
+    const pill = document.createElement('div');
+    pill.className = 'char-pill' + (c.id === viewedCharId ? ' active' : '');
+    pill.title = c.name;
+    pill.style.background = c.color + '33';
+    pill.textContent = c.avatar;
+    pill.addEventListener('click', () => {
+      viewedCharId = c.id;
+      sessionStorage.setItem('sheetCharId', c.id);
+      buildSheet();
+      buildSwitcher();
+    });
+    sw.appendChild(pill);
+  });
+}
+
+// ── Build sheet for viewed char ──────────────────────────────
+function buildSheet() {
+  const char = CHARACTERS.find(c => c.id === viewedCharId);
+  if (!char) return;
+
+  // Header
+  document.getElementById('sheetAvatar').textContent = char.avatar;
+  document.getElementById('sheetAvatar').style.background = char.color + '33';
+  document.getElementById('sheetAvatar').style.borderColor = char.color;
+  document.getElementById('sheetName').textContent = char.name;
+  document.getElementById('sheetClass').textContent = char.class;
+  document.getElementById('sheetHpCur').textContent = char.hp ?? char.hpMax ?? '?';
+  document.getElementById('sheetHpMax').textContent = `/ ${char.hpMax ?? '?'}`;
+
+  // Stats
+  const wheel = document.getElementById('statsWheel');
+  wheel.innerHTML = '';
+  Object.entries(char.stats).forEach(([key, val]) => {
+    const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
+    const pct = Math.round((val / 20) * 100); // bar out of 20
+
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.setProperty('--stat-color', sc.color);
+    card.innerHTML = `
+      <div class="stat-hex">
+        <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
+          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+        </svg>
+        <span class="hex-val">${val}</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-name-lbl">${sc.label}</div>
+        <div class="stat-gauge">
+          <div class="stat-gauge-fill" style="width:${pct}%; background:${sc.color}"></div>
+        </div>
+      </div>
+    `;
+    wheel.appendChild(card);
+  });
+
+  // Equipment
+  const equip = document.getElementById('equipGrid');
+  equip.innerHTML = '';
+  const savedEquip = JSON.parse(localStorage.getItem(`equip_${char.id}`) || '[]');
+  EQUIP_SLOTS.forEach((slot, i) => {
+    const div = document.createElement('div');
+    div.className = 'equip-slot';
+    div.innerHTML = `
+      <span class="slot-icon">${slot.icon}</span>
+      <input type="text" placeholder="${slot.label}"
+             value="${(savedEquip[i] || '').replace(/"/g, '&quot;')}"
+             data-idx="${i}"
+             onchange="saveEquip(this, '${char.id}')">
+    `;
+    equip.appendChild(div);
+  });
+
+  // Notes
+  const notes = localStorage.getItem(`notes_${char.id}`) || '';
+  document.getElementById('notesBox').value = notes;
+  document.getElementById('notesBox').dataset.charId = char.id;
+
+  // Title
+  document.title = `Fiche — ${char.name}`;
+}
+
+// ── Save equipment slot ───────────────────────────────────────
+function saveEquip(input, charId) {
+  const idx = parseInt(input.dataset.idx);
+  const saved = JSON.parse(localStorage.getItem(`equip_${charId}`) || '[]');
+  saved[idx] = input.value;
+  localStorage.setItem(`equip_${charId}`, JSON.stringify(saved));
+}
+
+// ── Save notes ────────────────────────────────────────────────
+function saveNotes() {
+  const box = document.getElementById('notesBox');
+  const cid = box.dataset.charId || viewedCharId;
+  localStorage.setItem(`notes_${cid}`, box.value);
+  const msg = document.getElementById('savedMsg');
+  msg.classList.add('show');
+  setTimeout(() => msg.classList.remove('show'), 2000);
+}
+
+// Auto-save notes on typing (debounced)
+let saveTimer;
+document.getElementById('notesBox').addEventListener('input', () => {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNotes, 1200);
+});
+
+// ── Init ──────────────────────────────────────────────────────
+if (!CHARACTERS.length) {
+  document.body.innerHTML = `<div style="text-align:center;padding:4rem;font-family:'Cinzel Decorative',serif;color:#c9a84c">
+    <div style="font-size:2rem">⚔️</div>
+    <div style="margin:1rem 0">Session expirée</div>
+    <a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic">→ Retourner à la taverne</a>
+  </div>`;
+} else {
+  if (!CHARACTERS.find(c => c.id === viewedCharId)) {
+    viewedCharId = CHARACTERS[0].id;
+  }
+  buildSwitcher();
+  buildSheet();
+}
+</script>
+</body>
+</html>
