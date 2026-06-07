@@ -440,6 +440,7 @@ CHARACTERS.forEach(c => {
 let diceOnBoard = {};
 let useFirebase = false;
 let fbDB = null;
+let pendingAnimDieId = null; // id du dé qu'on vient de lancer (à animer dès réception)
 
 // ════════════════════════════════════════════════════════════
 //  TOP BAR : player chip avec PV
@@ -578,6 +579,7 @@ function rollStat(statKey, color, label, score) {
   };
 
   if (useFirebase) {
+    pendingAnimDieId = dieId;
     pushDieFirebase(dieData);
   } else {
     diceOnBoard[dieId] = dieData;
@@ -634,7 +636,8 @@ function renderDie(die, animate = false) {
   wrapper.appendChild(ownerLbl);
 
   if (animate) {
-    // Compute travel vector from HUD center to die target position
+    // On appende d'abord, puis on force un reflow avant d'ajouter la classe
+    document.getElementById('boardWrapper').appendChild(wrapper);
     const board  = document.getElementById('boardWrapper');
     const bw = board.clientWidth, bh = board.clientHeight;
     const hudH   = 130;
@@ -644,11 +647,12 @@ function renderDie(die, animate = false) {
     const dy = originY - die.y;
     hex.style.setProperty('--dx', dx + 'px');
     hex.style.setProperty('--dy', dy + 'px');
+    void wrapper.offsetWidth; // force reflow
     wrapper.classList.add('flying');
     wrapper.addEventListener('animationend', () => wrapper.classList.remove('flying'), { once: true });
+  } else {
+    document.getElementById('boardWrapper').appendChild(wrapper);
   }
-
-  document.getElementById('boardWrapper').appendChild(wrapper);
 }
 
 // ── Clear all dice ────────────────────────────────────────────
@@ -720,7 +724,11 @@ function initFirebase() {
       document.querySelectorAll('.die-wrapper').forEach(el => el.remove());
       const data = snap.val() || {};
       diceOnBoard = data;
-      Object.values(data).forEach(die => renderDie(die, false));
+      Object.values(data).forEach(die => {
+        const shouldAnim = die.id === pendingAnimDieId;
+        if (shouldAnim) pendingAnimDieId = null;
+        renderDie(die, shouldAnim);
+      });
     });
 
     // ── Pion sync ──
