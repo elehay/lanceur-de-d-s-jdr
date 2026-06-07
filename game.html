@@ -6,9 +6,7 @@
 <title>Plateau de Jeu</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 
-<!-- Firebase SDK (compat mode = pas de "import", fonctionne partout) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- Firebase chargé en module ES dans le script principal en bas -->
 
 <style>
 :root {
@@ -391,7 +389,10 @@ body {
   <div id="lastRollInfo">Lance un dé…</div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
 // ════════════════════════════════════════════════════════════
 //  FIREBASE CONFIG
 //  ⚠️  Remplace ces valeurs par ta config Firebase
@@ -653,7 +654,7 @@ function renderDie(die, animate = false) {
 // ── Clear all dice ────────────────────────────────────────────
 function clearAllDice() {
   if (useFirebase) {
-    fbDB.ref('session/dice').remove();
+    remove(ref(fbDB, 'session/dice'));
   } else {
     diceOnBoard = {};
     document.querySelectorAll('.die-wrapper').forEach(el => el.remove());
@@ -684,7 +685,7 @@ function makeDraggable(el, cid) {
       const board = document.getElementById('boardWrapper');
       const nx = parseFloat(el.style.left) / board.clientWidth  * 100;
       const ny = parseFloat(el.style.top)  / board.clientHeight * 100;
-      fbDB.ref(`session/pions/${cid}`).set({ x: nx, y: ny });
+      set(ref(fbDB, `session/pions/${cid}`), { x: nx, y: ny });
     }
   });
 }
@@ -699,24 +700,23 @@ function getContrastColor(hex) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  FIREBASE INIT
+//  FIREBASE INIT  (ES module imports)
 // ════════════════════════════════════════════════════════════
 function initFirebase() {
-  // Detect placeholder config — skip if not filled
   if (FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY') {
     showDemoMode(); return;
   }
 
   try {
-    const app = firebase.initializeApp(FIREBASE_CONFIG);
-    fbDB = firebase.database();
+    const app = initializeApp(FIREBASE_CONFIG);
+    fbDB = getDatabase(app);
 
     useFirebase = true;
     document.getElementById('connStatus').className = 'ok';
     document.getElementById('connStatus').textContent = '● Connecté';
 
     // ── Dice sync ──
-    fbDB.ref('session/dice').on('value', snap => {
+    onValue(ref(fbDB, 'session/dice'), snap => {
       document.querySelectorAll('.die-wrapper').forEach(el => el.remove());
       const data = snap.val() || {};
       diceOnBoard = data;
@@ -724,12 +724,12 @@ function initFirebase() {
     });
 
     // ── Pion sync ──
-    fbDB.ref('session/pions').on('value', snap => {
+    onValue(ref(fbDB, 'session/pions'), snap => {
       renderPions(snap.val() || {});
     });
 
     // ── HP sync ──
-    fbDB.ref('session/hp').on('value', snap => {
+    onValue(ref(fbDB, 'session/hp'), snap => {
       const data = snap.val() || {};
       Object.entries(data).forEach(([cid, hp]) => {
         hpData[cid] = hp;
@@ -738,24 +738,23 @@ function initFirebase() {
     });
 
     // ── Board image sync ──
-    fbDB.ref('session/boardImage').on('value', snap => {
+    onValue(ref(fbDB, 'session/boardImage'), snap => {
       const url = snap.val();
       if (url) document.getElementById('boardImg').src = url;
     });
 
-    // ── Register own pion position ──
-    const myPos = PION_POSITIONS[charId] || { x:50, y:50 };
-    fbDB.ref(`session/pions/${charId}`).once('value', snap => {
-      if (!snap.exists()) fbDB.ref(`session/pions/${charId}`).set(myPos);
-    });
-
-    // ── Register own HP if not exists ──
-    fbDB.ref(`session/hp/${charId}`).once('value', snap => {
+    // ── Register own pion (only if not already set) ──
+    onValue(ref(fbDB, `session/pions/${charId}`), snap => {
       if (!snap.exists()) {
-        const hp = hpData[charId];
-        fbDB.ref(`session/hp/${charId}`).set(hp);
+        const myPos = PION_POSITIONS[charId] || { x:50, y:50 };
+        set(ref(fbDB, `session/pions/${charId}`), myPos);
       }
-    });
+    }, { onlyOnce: true });
+
+    // ── Register own HP (only if not already set) ──
+    onValue(ref(fbDB, `session/hp/${charId}`), snap => {
+      if (!snap.exists()) set(ref(fbDB, `session/hp/${charId}`), hpData[charId]);
+    }, { onlyOnce: true });
 
   } catch(e) {
     console.warn('Firebase error:', e);
@@ -764,7 +763,7 @@ function initFirebase() {
 }
 
 function pushDieFirebase(die) {
-  fbDB.ref(`session/dice/${die.id}`).set(die);
+  set(ref(fbDB, `session/dice/${die.id}`), die);
 }
 
 function showDemoMode() {
