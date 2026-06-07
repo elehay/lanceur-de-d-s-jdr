@@ -676,12 +676,12 @@ function getContrastColor(hex) {
 // ════════════════════════════════════════════════════════════
 function initFirebase() {
   // Detect placeholder config — skip if not filled
-  if (FIREBASE_CONFIG.apiKey === 'VOTRE_API_KEY') {
+  if (firebaseConfig.apiKey === 'AIzaSyCA_-IXPsYSZjgAuaZTh0S7BlEVvdGvcsE') {
     showDemoMode(); return;
   }
 
   try {
-    const app = firebase.initializeApp(FIREBASE_CONFIG);
+    const app = firebase.initializeApp(firebaseConfig);
     fbDB = firebase.database();
 
     useFirebase = true;
