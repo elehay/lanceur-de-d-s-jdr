@@ -377,11 +377,17 @@ body {
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp }                    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { FIREBASE_CONFIG }                  from "./config.js";
+
 // ── Session ───────────────────────────────────────────────────
-const CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
+let CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
 const STAT_COLORS = JSON.parse(sessionStorage.getItem('statColors') || '{}');
+const isGM = sessionStorage.getItem('isGM') === 'true';
 let viewedCharId = sessionStorage.getItem('sheetCharId') || sessionStorage.getItem('charId');
+let fbDB = null;
 
 const EQUIP_SLOTS = [
   { icon: '⚔️', label: 'Arme principale' },
@@ -394,7 +400,41 @@ const EQUIP_SLOTS = [
   { icon: '✨', label: 'Objet magique' },
 ];
 
-// ── Build character switcher pills ───────────────────────────
+// ── Firebase ──────────────────────────────────────────────────
+try {
+  const app = initializeApp(FIREBASE_CONFIG);
+  fbDB = getDatabase(app);
+
+  // Sync HP from Firebase so sheet reflects live values
+  onValue(ref(fbDB, 'session/hp'), snap => {
+    const data = snap.val() || {};
+    CHARACTERS.forEach(c => {
+      if (data[c.id]) {
+        c.hp    = data[c.id].current;
+        c.hpMax = data[c.id].max;
+      }
+    });
+    // Refresh HP display if we're already showing a sheet
+    const hpCurEl = document.getElementById('sheetHpCur');
+    const hpMaxEl = document.getElementById('sheetHpMax');
+    const cur = CHARACTERS.find(c => c.id === viewedCharId);
+    if (hpCurEl && cur) hpCurEl.textContent = cur.hp ?? '?';
+    if (hpMaxEl && cur) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
+  });
+} catch(e) {
+  console.warn('Firebase unavailable on sheet:', e);
+}
+
+// ── GM badge ─────────────────────────────────────────────────
+if (isGM) {
+  const nav = document.getElementById('topNav');
+  const badge = document.createElement('div');
+  badge.style.cssText = 'font-family:"Cinzel",serif;font-size:0.72rem;letter-spacing:0.1em;color:#27ae60;background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.3);border-radius:20px;padding:0.2rem 0.7rem';
+  badge.textContent = '🎭 Mode MJ';
+  nav.insertBefore(badge, nav.lastElementChild);
+}
+
+// ── Build switcher ────────────────────────────────────────────
 function buildSwitcher() {
   const sw = document.getElementById('charSwitcher');
   sw.innerHTML = '';
@@ -414,47 +454,84 @@ function buildSwitcher() {
   });
 }
 
-// ── Build sheet for viewed char ──────────────────────────────
+// ── Build sheet ───────────────────────────────────────────────
 function buildSheet() {
   const char = CHARACTERS.find(c => c.id === viewedCharId);
   if (!char) return;
 
-  // Header
   document.getElementById('sheetAvatar').textContent = char.avatar;
   document.getElementById('sheetAvatar').style.background = char.color + '33';
   document.getElementById('sheetAvatar').style.borderColor = char.color;
   document.getElementById('sheetName').textContent = char.name;
   document.getElementById('sheetClass').textContent = char.class;
-  document.getElementById('sheetHpCur').textContent = char.hp ?? char.hpMax ?? '?';
-  document.getElementById('sheetHpMax').textContent = `/ ${char.hpMax ?? '?'}`;
+
+  // HP — editable for GM
+  if (isGM) {
+    document.getElementById('sheetHpCur').innerHTML =
+      `<input id="hpCurInput" type="number" min="0" max="999" value="${char.hp ?? char.hpMax ?? 0}"
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid #e05555;color:#e05555;font-family:'Cinzel',serif;font-size:1.4rem;text-align:center;outline:none"
+        onchange="saveHp()">`;
+    document.getElementById('sheetHpMax').innerHTML =
+      `/ <input id="hpMaxInput" type="number" min="0" max="999" value="${char.hpMax ?? 0}"
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid rgba(245,230,200,0.3);color:rgba(245,230,200,0.45);font-family:'Cinzel',serif;font-size:0.9rem;text-align:center;outline:none"
+        onchange="saveHp()">`;
+  } else {
+    document.getElementById('sheetHpCur').textContent = char.hp ?? char.hpMax ?? '?';
+    document.getElementById('sheetHpMax').textContent = `/ ${char.hpMax ?? '?'}`;
+  }
 
   // Stats
   const wheel = document.getElementById('statsWheel');
   wheel.innerHTML = '';
   Object.entries(char.stats).forEach(([key, val]) => {
     const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
-    const pct = Math.round((val / 20) * 100); // bar out of 20
+    const pct = Math.round((val / 20) * 100);
 
     const card = document.createElement('div');
     card.className = 'stat-card';
     card.style.setProperty('--stat-color', sc.color);
+
+    const statContent = isGM
+      ? `<input class="stat-edit-input" type="number" min="1" max="30"
+           value="${val}" data-stat="${key}"
+           style="width:40px;background:rgba(0,0,0,0.4);border:1px solid ${sc.color}55;border-radius:4px;color:rgba(0,0,0,0.85);font-family:'Cinzel',serif;font-size:0.95rem;font-weight:700;text-align:center;outline:none;padding:2px"
+           onchange="saveStats()">`
+      : `<span class="hex-val">${val}</span>`;
+
     card.innerHTML = `
       <div class="stat-hex">
         <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
           <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
           <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
         </svg>
-        <span class="hex-val">${val}</span>
+        ${statContent}
       </div>
       <div class="stat-info">
         <div class="stat-name-lbl">${sc.label}</div>
         <div class="stat-gauge">
-          <div class="stat-gauge-fill" style="width:${pct}%; background:${sc.color}"></div>
+          <div class="stat-gauge-fill" id="gauge_${key}" style="width:${pct}%;background:${sc.color}"></div>
         </div>
       </div>
     `;
     wheel.appendChild(card);
   });
+
+  if (isGM) {
+    // Save bar for stats
+    let saveBar = document.getElementById('gmSaveBar');
+    if (!saveBar) {
+      saveBar = document.createElement('div');
+      saveBar.id = 'gmSaveBar';
+      saveBar.style.cssText = 'width:100%;max-width:700px;display:flex;justify-content:flex-end;gap:0.6rem;align-items:center;margin-bottom:1rem';
+      saveBar.innerHTML = `
+        <span id="statSavedMsg" style="font-size:0.75rem;color:#27ae60;font-style:italic;opacity:0;transition:opacity 0.3s">Sauvegardé ✓</span>
+        <button onclick="saveStats(true)"
+          style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:0.4rem 1rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer">
+          💾 Sauvegarder les stats
+        </button>`;
+      wheel.after(saveBar);
+    }
+  }
 
   // Equipment
   const equip = document.getElementById('equipGrid');
@@ -473,34 +550,70 @@ function buildSheet() {
     equip.appendChild(div);
   });
 
-  // Notes
   const notes = localStorage.getItem(`notes_${char.id}`) || '';
   document.getElementById('notesBox').value = notes;
   document.getElementById('notesBox').dataset.charId = char.id;
 
-  // Title
   document.title = `Fiche — ${char.name}`;
 }
 
-// ── Save equipment slot ───────────────────────────────────────
-function saveEquip(input, charId) {
+// ── GM: save stats to Firebase ────────────────────────────────
+window.saveStats = function(explicit = false) {
+  const char = CHARACTERS.find(c => c.id === viewedCharId);
+  if (!char || !isGM) return;
+
+  document.querySelectorAll('.stat-edit-input').forEach(input => {
+    const key = input.dataset.stat;
+    const val = parseInt(input.value) || 1;
+    char.stats[key] = val;
+    // Update gauge
+    const gauge = document.getElementById(`gauge_${key}`);
+    if (gauge) gauge.style.width = Math.round((val/20)*100) + '%';
+  });
+
+  // Persist to sessionStorage so other pages see updated stats
+  sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+
+  // Push to Firebase
+  if (fbDB) {
+    set(ref(fbDB, `session/chars/${char.id}/stats`), char.stats);
+  }
+
+  if (explicit) {
+    const msg = document.getElementById('statSavedMsg');
+    if (msg) { msg.style.opacity = '1'; setTimeout(() => msg.style.opacity = '0', 2000); }
+  }
+};
+
+// ── GM: save HP to Firebase ───────────────────────────────────
+window.saveHp = function() {
+  const char = CHARACTERS.find(c => c.id === viewedCharId);
+  if (!char || !isGM) return;
+  const cur = parseInt(document.getElementById('hpCurInput')?.value) ?? char.hp;
+  const max = parseInt(document.getElementById('hpMaxInput')?.value) ?? char.hpMax;
+  char.hp = cur; char.hpMax = max;
+  sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+  if (fbDB) set(ref(fbDB, `session/hp/${char.id}`), { current: cur, max });
+};
+
+// ── Save equipment ────────────────────────────────────────────
+window.saveEquip = function(input, charId) {
   const idx = parseInt(input.dataset.idx);
   const saved = JSON.parse(localStorage.getItem(`equip_${charId}`) || '[]');
   saved[idx] = input.value;
   localStorage.setItem(`equip_${charId}`, JSON.stringify(saved));
-}
+};
 
 // ── Save notes ────────────────────────────────────────────────
-function saveNotes() {
+window.saveNotes = function() {
   const box = document.getElementById('notesBox');
   const cid = box.dataset.charId || viewedCharId;
   localStorage.setItem(`notes_${cid}`, box.value);
   const msg = document.getElementById('savedMsg');
   msg.classList.add('show');
   setTimeout(() => msg.classList.remove('show'), 2000);
-}
+};
 
-// Auto-save notes on typing (debounced)
 let saveTimer;
 document.getElementById('notesBox').addEventListener('input', () => {
   clearTimeout(saveTimer);
@@ -515,12 +628,11 @@ if (!CHARACTERS.length) {
     <a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic">→ Retourner à la taverne</a>
   </div>`;
 } else {
-  if (!CHARACTERS.find(c => c.id === viewedCharId)) {
-    viewedCharId = CHARACTERS[0].id;
-  }
+  if (!CHARACTERS.find(c => c.id === viewedCharId)) viewedCharId = CHARACTERS[0].id;
   buildSwitcher();
   buildSheet();
 }
 </script>
+
 </body>
 </html>
