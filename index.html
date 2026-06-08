@@ -239,6 +239,24 @@
     </button>
   </div>
 
+  <!-- MJ section -->
+  <div class="divider" style="margin-top:1.8rem"></div>
+  <div style="text-align:center;margin:0.6rem 0 0.8rem">
+    <span style="font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.1em;color:rgba(201,168,76,0.4);text-transform:uppercase">Maître de Jeu</span>
+  </div>
+  <div class="panel" style="padding:1.2rem 2rem">
+    <div class="field" style="margin-bottom:1rem">
+      <label class="field-label" for="gmPassword">Mot de passe MJ</label>
+      <input type="password" id="gmPassword" placeholder="••••••••" oninput="checkGmReady()" onkeydown="if(event.key==='Enter')enterGM()">
+    </div>
+    <div id="gmError" style="color:#e05555;font-size:0.85rem;font-style:italic;margin-bottom:0.7rem;display:none">
+      Mot de passe incorrect.
+    </div>
+    <button class="btn-enter" id="gmBtn" onclick="enterGM()" disabled style="background:linear-gradient(135deg,#1a3a1a,#0f260f);border-color:rgba(39,174,96,0.4);box-shadow:0 4px 20px rgba(39,174,96,0.2)">
+      🎭 &nbsp; Entrer en tant que MJ
+    </button>
+  </div>
+
   <p class="footer-note">Parlez, ami, et entrez.</p>
 </div>
 
@@ -341,14 +359,36 @@ function checkReady() {
   document.getElementById('enterBtn').disabled = !(name && char);
 }
 
+function checkGmReady() {
+  document.getElementById('gmBtn').disabled = !document.getElementById('gmPassword').value;
+  document.getElementById('gmError').style.display = 'none';
+}
+
 function enterGame() {
   const playerName = document.getElementById('playerName').value.trim();
   const charId = sel.value;
   if (!playerName || !charId) return;
 
-  // Stocker en sessionStorage pour la page de jeu
   sessionStorage.setItem('playerName', playerName);
   sessionStorage.setItem('charId', charId);
+  sessionStorage.setItem('isGM', 'false');
+  sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+  sessionStorage.setItem('statColors', JSON.stringify(STAT_COLORS));
+
+  window.location.href = 'game.html';
+}
+
+async function enterGM() {
+  const pwd = document.getElementById('gmPassword').value;
+  // Import GM_PASSWORD from config.js
+  const { GM_PASSWORD, FIREBASE_CONFIG } = await import('./config.js');
+  if (pwd !== GM_PASSWORD) {
+    document.getElementById('gmError').style.display = 'block';
+    return;
+  }
+  sessionStorage.setItem('playerName', 'MJ');
+  sessionStorage.setItem('charId', '__gm__');
+  sessionStorage.setItem('isGM', 'true');
   sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
   sessionStorage.setItem('statColors', JSON.stringify(STAT_COLORS));
 
