@@ -11,13 +11,13 @@
 // ═══════════════════════════════════════════════════════════
 
 export const FIREBASE_CONFIG = {
-  apiKey:            "VOTRE_API_KEY",
-  authDomain:        "VOTRE_PROJECT.firebaseapp.com",
-  databaseURL:       "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "VOTRE_PROJECT",
-  storageBucket:     "VOTRE_PROJECT.appspot.com",
-  messagingSenderId: "VOTRE_SENDER_ID",
-  appId:             "VOTRE_APP_ID"
+  apiKey: "AIzaSyCA_-IXPsYSZjgAuaZTh0S7BlEVvdGvcsE",
+  authDomain: "jdr-lancer-des.firebaseapp.com",
+  databaseURL: "https://jdr-lancer-des-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "jdr-lancer-des",
+  storageBucket: "jdr-lancer-des.firebasestorage.app",
+  messagingSenderId: "806397430349",
+  appId: "1:806397430349:web:b9ca42182314a983a76a04"
 };
 
 // Mot de passe du Maître de Jeu
