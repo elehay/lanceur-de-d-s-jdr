@@ -392,22 +392,7 @@ body {
 <script type="module">
 import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-// ════════════════════════════════════════════════════════════
-//  FIREBASE CONFIG
-//  ⚠️  Remplace ces valeurs par ta config Firebase
-//  (Console Firebase → Paramètres projet → Vos applications)
-// ════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCA_-IXPsYSZjgAuaZTh0S7BlEVvdGvcsE",
-  authDomain: "jdr-lancer-des.firebaseapp.com",
-  databaseURL: "https://jdr-lancer-des-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "jdr-lancer-des",
-  storageBucket: "jdr-lancer-des.firebasestorage.app",
-  messagingSenderId: "806397430349",
-  appId: "1:806397430349:web:b9ca42182314a983a76a04"
-};
-// ════════════════════════════════════════════════════════════
+import { FIREBASE_CONFIG }                        from "./config.js";
 
 // ── Session ──────────────────────────────────────────────────
 const playerName = sessionStorage.getItem('playerName');
@@ -804,9 +789,19 @@ function buildSheetPills() {
   });
 }
 
-// ════════════════════════════════════════════════════════════
-//  BOOT
-// ════════════════════════════════════════════════════════════
+// ── GM shortcut in top bar ────────────────────────────────────
+if (sessionStorage.getItem('isGM') === 'true') {
+  const topBar = document.getElementById('topBar');
+  const gmLink = document.createElement('a');
+  gmLink.href = 'gm.html';
+  gmLink.style.cssText = 'flex-shrink:0;background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);border-radius:8px;padding:0.3rem 0.75rem;color:#27ae60;font-family:"Cinzel",serif;font-size:0.7rem;letter-spacing:0.06em;text-decoration:none;transition:background 0.15s;white-space:nowrap';
+  gmLink.textContent = '🎭 Tableau MJ';
+  gmLink.addEventListener('mouseenter', () => gmLink.style.background = 'rgba(39,174,96,0.22)');
+  gmLink.addEventListener('mouseleave', () => gmLink.style.background = 'rgba(39,174,96,0.1)');
+  topBar.insertBefore(gmLink, document.getElementById('connStatus'));
+}
+
+// ── Init ──────────────────────────────────────────────────────
 buildPlayerChip();
 buildSheetPills();
 buildHud();
