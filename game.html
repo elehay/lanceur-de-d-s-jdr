@@ -426,7 +426,9 @@ CHARACTERS.forEach(c => {
 let diceOnBoard = {};
 let useFirebase = false;
 let fbDB = null;
-let pendingAnimDieId = null; // id du dé qu'on vient de lancer (à animer dès réception)
+let pendingAnimDieId = null;
+// Unique key identifying this player's dice (playerName + charId)
+const playerKey = `${playerName}_${charId}`;
 
 // ════════════════════════════════════════════════════════════
 //  TOP BAR : player chip avec PV
@@ -567,9 +569,19 @@ function buildHud() {
 
   const clr = document.createElement('button');
   clr.className = 'btn-clear';
-  clr.innerHTML = `<div class="icon">🧹</div><div>Fin d'action</div>`;
+  clr.innerHTML = `<div class="icon">🧹</div><div>Mes dés</div>`;
   clr.addEventListener('click', clearAllDice);
   hud.appendChild(clr);
+
+  // MJ only: clear everyone's dice
+  if (isGM) {
+    const clrAll = document.createElement('button');
+    clrAll.className = 'btn-clear';
+    clrAll.style.borderColor = 'rgba(231,76,60,0.6)';
+    clrAll.innerHTML = `<div class="icon">💥</div><div>Tout</div>`;
+    clrAll.addEventListener('click', clearAllDiceGM);
+    hud.appendChild(clrAll);
+  }
 
   const info = document.createElement('div');
   info.id = 'lastRollInfo';
@@ -598,7 +610,8 @@ function rollStat(statKey, color, label, score, sides = 20) {
     stat: statKey, label, color, score,
     success,
     owner: playerName,
-    char:  myChar.name || '',
+    ownerKey: playerKey,
+    char:  myChar.name || 'MJ',
     ts:    Date.now()
   };
 
@@ -659,6 +672,10 @@ function renderDie(die, animate = false) {
   wrapper.appendChild(hex);
   wrapper.appendChild(ownerLbl);
 
+  // Drag: own dice for players, all dice for GM
+  const canDragDie = isGM || die.ownerKey === playerKey;
+  if (canDragDie) makeDieDraggable(wrapper, die.id);
+
   if (animate) {
     // On appende d'abord, puis on force un reflow avant d'ajouter la classe
     document.getElementById('boardWrapper').appendChild(wrapper);
@@ -679,8 +696,30 @@ function renderDie(die, animate = false) {
   }
 }
 
-// ── Clear all dice ────────────────────────────────────────────
+// ── Clear only OWN dice ───────────────────────────────────────
 function clearAllDice() {
+  if (useFirebase) {
+    // Remove only dice owned by this player
+    Object.values(diceOnBoard).forEach(die => {
+      if (die.ownerKey === playerKey) {
+        remove(ref(fbDB, `session/dice/${die.id}`));
+      }
+    });
+  } else {
+    Object.keys(diceOnBoard).forEach(id => {
+      if (diceOnBoard[id].ownerKey === playerKey) {
+        delete diceOnBoard[id];
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      }
+    });
+  }
+  const info = document.getElementById('lastRollInfo');
+  if (info) info.textContent = 'Lance un dé…';
+}
+
+// ── GM: clear ALL dice ────────────────────────────────────────
+function clearAllDiceGM() {
   if (useFirebase) {
     remove(ref(fbDB, 'session/dice'));
   } else {
@@ -689,6 +728,45 @@ function clearAllDice() {
   }
   const info = document.getElementById('lastRollInfo');
   if (info) info.textContent = 'Lance un dé…';
+}
+
+// ── Drag a die on the board ───────────────────────────────────
+function makeDieDraggable(wrapper, dieId) {
+  let dragging = false, sx, sy, ox, oy;
+  wrapper.style.pointerEvents = 'auto';
+  wrapper.style.cursor = 'grab';
+
+  wrapper.addEventListener('mousedown', e => {
+    dragging = true;
+    sx = e.clientX; sy = e.clientY;
+    ox = parseFloat(wrapper.style.left);
+    oy = parseFloat(wrapper.style.top);
+    wrapper.style.cursor = 'grabbing';
+    wrapper.style.zIndex = 50;
+    e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    wrapper.style.left = (ox + e.clientX - sx) + 'px';
+    wrapper.style.top  = (oy + e.clientY - sy) + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    wrapper.style.cursor = 'grab';
+    wrapper.style.zIndex = 10;
+    const nx = parseFloat(wrapper.style.left);
+    const ny = parseFloat(wrapper.style.top);
+    if (useFirebase && diceOnBoard[dieId]) {
+      diceOnBoard[dieId].x = nx;
+      diceOnBoard[dieId].y = ny;
+      set(ref(fbDB, `session/dice/${dieId}/x`), nx);
+      set(ref(fbDB, `session/dice/${dieId}/y`), ny);
+    } else if (diceOnBoard[dieId]) {
+      diceOnBoard[dieId].x = nx;
+      diceOnBoard[dieId].y = ny;
+    }
+  });
 }
 
 // ── Drag pion ─────────────────────────────────────────────────
@@ -775,7 +853,22 @@ function initFirebase() {
       if (url) document.getElementById('boardImg').src = url;
     });
 
-    // ── Register own pion (only if not already set) ──
+    // ── Stats sync (MJ → joueurs) ──
+    onValue(ref(fbDB, 'session/chars'), snap => {
+      const data = snap.val() || {};
+      let changed = false;
+      CHARACTERS.forEach(c => {
+        if (data[c.id]?.stats) {
+          c.stats = data[c.id].stats;
+          changed = true;
+        }
+      });
+      if (changed) {
+        sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+        // Rebuild HUD so stat thresholds are up to date
+        buildHud();
+      }
+    });
     onValue(ref(fbDB, `session/pions/${charId}`), snap => {
       if (!snap.exists()) {
         const myPos = PION_POSITIONS[charId] || { x:50, y:50 };
