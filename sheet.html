@@ -564,19 +564,17 @@ window.saveStats = function(explicit = false) {
 
   document.querySelectorAll('.stat-edit-input').forEach(input => {
     const key = input.dataset.stat;
-    const val = parseInt(input.value) || 1;
+    const val = Math.max(1, Math.min(30, parseInt(input.value) || 1));
     char.stats[key] = val;
-    // Update gauge
     const gauge = document.getElementById(`gauge_${key}`);
-    if (gauge) gauge.style.width = Math.round((val/20)*100) + '%';
+    if (gauge) gauge.style.width = Math.round((val / 20) * 100) + '%';
   });
 
-  // Persist to sessionStorage so other pages see updated stats
   sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
 
-  // Push to Firebase
+  // Push ALL stats of this char to Firebase so all clients receive the update
   if (fbDB) {
-    set(ref(fbDB, `session/chars/${char.id}/stats`), char.stats);
+    set(ref(fbDB, `session/chars/${char.id}/stats`), { ...char.stats });
   }
 
   if (explicit) {
@@ -584,6 +582,14 @@ window.saveStats = function(explicit = false) {
     if (msg) { msg.style.opacity = '1'; setTimeout(() => msg.style.opacity = '0', 2000); }
   }
 };
+
+// Auto-save on every keystroke (debounced 600ms)
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('stat-edit-input')) {
+    clearTimeout(window._statSaveTimer);
+    window._statSaveTimer = setTimeout(() => saveStats(false), 600);
+  }
+});
 
 // ── GM: save HP to Firebase ───────────────────────────────────
 window.saveHp = function() {
