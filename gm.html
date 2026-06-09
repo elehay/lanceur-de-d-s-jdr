@@ -476,6 +476,7 @@ function rollGM() {
     <span style="font-size:1.4rem;color:#27ae60;font-family:'Cinzel',serif">${total}</span>
   `;
 }
+window.rollGM = rollGM;
 
 // Roll a specific stat die for a player (secretly)
 window.rollStatForPlayer = function(charId, statKey, statVal, color, label) {
@@ -506,6 +507,7 @@ function clearGMDice() {
   document.querySelectorAll('.die-wrapper').forEach(el => el.remove());
   document.getElementById('gmRollResult').innerHTML = `<span style="color:rgba(245,230,200,0.35);font-style:italic;font-size:0.82rem">Lance un dé…</span>`;
 }
+window.clearGMDice = clearGMDice;
 
 // ── Render GM die ─────────────────────────────────────────────
 function hexSVG(fill, stroke) {
