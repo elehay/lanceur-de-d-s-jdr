@@ -494,9 +494,9 @@ function buildSheet() {
     const statContent = isGM
       ? `<input class="stat-edit-input" type="number" min="1" max="30"
            value="${val}" data-stat="${key}"
-           style="width:40px;background:rgba(0,0,0,0.4);border:1px solid ${sc.color}55;border-radius:4px;color:rgba(0,0,0,0.85);font-family:'Cinzel',serif;font-size:0.95rem;font-weight:700;text-align:center;outline:none;padding:2px"
+           style="width:36px;background:rgba(255,255,255,0.12);border:none;border-bottom:2px solid ${sc.color};border-radius:0;color:#fff;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;text-align:center;outline:none;padding:2px;position:relative;z-index:3"
            onchange="saveStats()">`
-      : `<span class="hex-val">${val}</span>`;
+      : `<span class="hex-val" style="position:relative;z-index:3">${val}</span>`;
 
     card.innerHTML = `
       <div class="stat-hex">
