@@ -400,7 +400,8 @@ const charId     = sessionStorage.getItem('charId');
 const CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
 const STAT_COLORS= JSON.parse(sessionStorage.getItem('statColors') || '{}');
 
-if (!playerName || !charId || !CHARACTERS.length) {
+const isGM = sessionStorage.getItem('isGM') === 'true';
+if (!playerName || (!isGM && (!charId || !CHARACTERS.length))) {
   document.getElementById('loginBlock').style.display = 'flex';
 }
 
@@ -431,7 +432,14 @@ let pendingAnimDieId = null; // id du dé qu'on vient de lancer (à animer dès 
 //  TOP BAR : player chip avec PV
 // ════════════════════════════════════════════════════════════
 function buildPlayerChip() {
-  const hp  = hpData[charId] || { current: '?', max: '?' };
+  if (isGM) {
+    document.getElementById('playerChip').innerHTML = `
+      <span class="avatar">🎭</span>
+      <span class="pname">Maître de Jeu</span>
+    `;
+    return;
+  }
+  const hp = hpData[charId] || { current: '?', max: '?' };
   document.getElementById('playerChip').innerHTML = `
     <span class="avatar">${myChar.avatar || '⚔️'}</span>
     <span class="pname">${myChar.name || playerName}</span>
@@ -472,7 +480,9 @@ function renderPions(positions) {
       </div>
     `;
 
-    if (char.id === charId) makeDraggable(pion, char.id);
+    const canDrag = isGM || char.id === charId;
+    if (canDrag) makeDraggable(pion, char.id);
+    if (canDrag) pion.classList.add('mine');
     board.appendChild(pion);
   });
 }
@@ -494,33 +504,62 @@ function updateHpDisplay(cid, current, max) {
 function buildHud() {
   const hud = document.getElementById('hud');
   hud.innerHTML = '';
+  const isGM = sessionStorage.getItem('isGM') === 'true';
 
-  if (!myChar.stats) return;
-
-  Object.entries(myChar.stats).forEach(([key, val]) => {
-    const sc = STAT_COLORS[key] || { color:'#aaa', label:key };
-    const btn = document.createElement('button');
-    btn.className = 'stat-btn';
-    btn.style.setProperty('--btn-color', sc.color);
-    btn.title = `D20 — ${sc.label} (seuil: ${val})`;
-
-    // Hexagon SVG for button
-    btn.innerHTML = `
-      <div class="btn-hex">
-        <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12"
-                   fill="${sc.color}" opacity="0.9"/>
-          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12"
-                   fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-        </svg>
-        <span class="btn-d20">D20</span>
-      </div>
-      <span class="stat-label">${sc.label}</span>
-      <span class="stat-score">${val}</span>
-    `;
-    btn.addEventListener('click', () => rollStat(key, sc.color, sc.label, val));
-    hud.appendChild(btn);
-  });
+  if (isGM) {
+    // MJ : dés publics colorés, seuil 10 par défaut
+    const GM_DICE = [
+      { sides:4,   color:'#aaaaaa', label:'D4'   },
+      { sides:6,   color:'#c9a84c', label:'D6'   },
+      { sides:8,   color:'#9b59b6', label:'D8'   },
+      { sides:10,  color:'#e67e22', label:'D10'  },
+      { sides:12,  color:'#27ae60', label:'D12'  },
+      { sides:20,  color:'#3498db', label:'D20'  },
+      { sides:100, color:'#e05555', label:'D100' },
+    ];
+    GM_DICE.forEach(({ sides, color, label }) => {
+      const btn = document.createElement('button');
+      btn.className = 'stat-btn';
+      btn.style.setProperty('--btn-color', color);
+      btn.title = `Lancer ${label} publiquement`;
+      btn.innerHTML = `
+        <div class="btn-hex">
+          <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${color}" opacity="0.9"/>
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+          </svg>
+          <span class="btn-d20">${label}</span>
+        </div>
+        <span class="stat-label">${label}</span>
+        <span class="stat-score">pub.</span>
+      `;
+      btn.addEventListener('click', () => rollStat(`gm_${sides}`, color, label, 10, sides));
+      hud.appendChild(btn);
+    });
+  } else {
+    // Joueur normal : ses 8 stats
+    if (!myChar.stats) return;
+    Object.entries(myChar.stats).forEach(([key, val]) => {
+      const sc = STAT_COLORS[key] || { color:'#aaa', label:key };
+      const btn = document.createElement('button');
+      btn.className = 'stat-btn';
+      btn.style.setProperty('--btn-color', sc.color);
+      btn.title = `D20 — ${sc.label} (seuil: ${val})`;
+      btn.innerHTML = `
+        <div class="btn-hex">
+          <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+          </svg>
+          <span class="btn-d20">D20</span>
+        </div>
+        <span class="stat-label">${sc.label}</span>
+        <span class="stat-score">${val}</span>
+      `;
+      btn.addEventListener('click', () => rollStat(key, sc.color, sc.label, val));
+      hud.appendChild(btn);
+    });
+  }
 
   const sep = document.createElement('div');
   sep.className = 'hud-sep';
@@ -541,8 +580,8 @@ function buildHud() {
 // ════════════════════════════════════════════════════════════
 //  DICE ROLLING
 // ════════════════════════════════════════════════════════════
-function rollStat(statKey, color, label, score) {
-  const value = Math.floor(Math.random() * 20) + 1;
+function rollStat(statKey, color, label, score, sides = 20) {
+  const value = Math.floor(Math.random() * sides) + 1;
   const dieId = `die_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
 
   const board  = document.getElementById('boardWrapper');
