@@ -909,25 +909,32 @@ window.saveNotes = function() {
   setTimeout(() => msg.classList.remove('show'), 2000);
 };
 
-let saveTimer;
-document.getElementById('notesBox').addEventListener('input', () => {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveNotes, 1200);
-});
-
 // ── Init ──────────────────────────────────────────────────────
 if (!CHARACTERS.length) {
-  document.body.innerHTML = `<div style="text-align:center;padding:4rem;font-family:'Cinzel Decorative',serif;color:#c9a84c">
-    <div style="font-size:2rem">⚔️</div>
-    <div style="margin:1rem 0">Session expirée</div>
-    <a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic">→ Retourner à la taverne</a>
-  </div>`;
+  // Don't replace body — just show an overlay so the script keeps running
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:999;font-family:"Cinzel Decorative",serif;font-size:1.1rem;color:#c9a84c;text-align:center';
+  overlay.innerHTML = `<div style="font-size:2rem">⚔️</div><div>Session expirée</div><a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic;font-size:0.9rem">→ Retourner à la taverne</a>`;
+  document.body.appendChild(overlay);
 } else {
   if (!CHARACTERS.find(c => c.id === viewedCharId)) viewedCharId = CHARACTERS[0].id;
   buildSwitcher();
   buildSheet();
 }
-</script>
+
+// Wire up buttons that use onclick= (safe to do after module loads)
+const notesBox = document.getElementById('notesBox');
+if (notesBox) {
+  let saveTimer;
+  notesBox.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNotes, 1200);
+  });
+}
+const addItemBtn = document.querySelector('.btn-add-item');
+if (addItemBtn) addItemBtn.addEventListener('click', () => window.addEquipItem());
+const saveNotesBtn = document.querySelector('.btn-save');
+if (saveNotesBtn) saveNotesBtn.addEventListener('click', saveNotes);
 
 </body>
 </html>
