@@ -306,33 +306,210 @@ body {
 .saved-msg.show { opacity: 1; }
 
 /* ── EQUIPMENT SECTION ── */
-.equip-grid {
+.equip-list {
   width: 100%;
   max-width: 700px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.6rem;
   margin-bottom: 2rem;
   animation: fadeUp 0.5s 0.25s ease both;
 }
-.equip-slot {
+
+.equip-item {
   background: var(--panel);
-  border: 1px dashed rgba(201,168,76,0.2);
-  border-radius: 8px;
-  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(201,168,76,0.18);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.equip-item:focus-within { border-color: rgba(201,168,76,0.4); }
+
+/* Item header row */
+.equip-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  user-select: none;
+}
+.equip-emoji-btn {
+  font-size: 1.4rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(201,168,76,0.25);
+  border-radius: 8px;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+}
+.equip-emoji-btn:hover { background: rgba(255,255,255,0.1); }
+.equip-name-input {
+  flex: 1;
+  background: transparent;
+  border: none; outline: none;
+  color: var(--parchment);
+  font-family: 'Cinzel', serif;
   font-size: 0.9rem;
-  color: rgba(245,230,200,0.45);
-  font-style: italic;
+  letter-spacing: 0.04em;
 }
-.equip-slot .slot-icon { font-size: 1rem; opacity: 0.6; }
-.equip-slot input {
-  flex:1; background:transparent; border:none; outline:none;
-  color: var(--parchment); font-family:'Crimson Text',serif; font-size:0.95rem;
+.equip-name-input::placeholder { color: rgba(245,230,200,0.25); font-style: italic; font-family: 'Crimson Text', serif; }
+.equip-toggle {
+  color: rgba(201,168,76,0.4);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  transition: transform 0.2s;
 }
-.equip-slot input::placeholder { color: rgba(245,230,200,0.3); font-style: italic; }
+.equip-item.open .equip-toggle { transform: rotate(180deg); }
+
+/* Remove item button */
+.equip-remove {
+  background: none; border: none;
+  color: rgba(224,85,85,0.4); font-size: 1rem;
+  cursor: pointer; padding: 0 0.2rem;
+  transition: color 0.15s; flex-shrink: 0;
+}
+.equip-remove:hover { color: #e05555; }
+
+/* Expandable body */
+.equip-body {
+  display: none;
+  padding: 0 0.8rem 0.8rem;
+  border-top: 1px solid rgba(201,168,76,0.1);
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.equip-item.open .equip-body { display: flex; }
+
+.equip-field-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: rgba(201,168,76,0.5);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+  margin-top: 0.4rem;
+}
+.equip-textarea {
+  width: 100%;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(201,168,76,0.12);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  color: var(--parchment);
+  font-family: 'Crimson Text', serif;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 50px;
+  outline: none;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+.equip-textarea:focus { border-color: rgba(201,168,76,0.35); }
+.equip-textarea::placeholder { color: rgba(245,230,200,0.22); font-style: italic; }
+
+/* Actions list */
+.actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.action-name-input {
+  flex: 1;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(201,168,76,0.12);
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  color: var(--parchment);
+  font-family: 'Crimson Text', serif;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.action-name-input:focus { border-color: rgba(201,168,76,0.35); }
+.action-name-input::placeholder { color: rgba(245,230,200,0.22); font-style: italic; }
+
+.action-dice-select {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 62px;
+  text-align: center;
+}
+.action-remove-btn {
+  background: none; border: none;
+  color: rgba(224,85,85,0.35); font-size: 0.9rem;
+  cursor: pointer; padding: 0 2px;
+  transition: color 0.15s;
+}
+.action-remove-btn:hover { color: #e05555; }
+
+.btn-add-action {
+  background: rgba(201,168,76,0.07);
+  border: 1px dashed rgba(201,168,76,0.25);
+  border-radius: 6px;
+  padding: 0.28rem 0.7rem;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s;
+  align-self: flex-start;
+}
+.btn-add-action:hover { background: rgba(201,168,76,0.15); }
+
+/* Emoji picker */
+.emoji-picker-popup {
+  position: absolute; top: 100%; left: 0; z-index: 200;
+  background: #1a1208;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  display: flex; flex-wrap: wrap;
+  width: 200px; gap: 2px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+.emoji-opt {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; border-radius: 4px; cursor: pointer;
+  transition: background 0.1s;
+}
+.emoji-opt:hover { background: rgba(255,255,255,0.1); }
+
+/* Add item button */
+.btn-add-item {
+  width: 100%; max-width: 700px;
+  background: rgba(201,168,76,0.05);
+  border: 1px dashed rgba(201,168,76,0.2);
+  border-radius: 10px;
+  padding: 0.5rem;
+  color: rgba(201,168,76,0.5);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.18s;
+  margin-bottom: 2rem;
+}
+.btn-add-item:hover { background: rgba(201,168,76,0.1); color: var(--gold); border-color: rgba(201,168,76,0.4); }
+
 </style>
 </head>
 <body>
@@ -365,7 +542,8 @@ body {
 
 <!-- ÉQUIPEMENT -->
 <div class="section-title">Équipement</div>
-<div class="equip-grid" id="equipGrid"></div>
+<div class="equip-list" id="equipList"></div>
+<button class="btn-add-item" onclick="addEquipItem()">＋ Ajouter un objet</button>
 
 <!-- NOTES -->
 <div class="section-title">Notes & Histoire</div>
@@ -388,17 +566,6 @@ const STAT_COLORS = JSON.parse(sessionStorage.getItem('statColors') || '{}');
 const isGM = sessionStorage.getItem('isGM') === 'true';
 let viewedCharId = sessionStorage.getItem('sheetCharId') || sessionStorage.getItem('charId');
 let fbDB = null;
-
-const EQUIP_SLOTS = [
-  { icon: '⚔️', label: 'Arme principale' },
-  { icon: '🛡️', label: 'Bouclier / Arme 2' },
-  { icon: '🪖', label: 'Armure / Tête' },
-  { icon: '👟', label: 'Bottes / Pieds' },
-  { icon: '💍', label: 'Anneau 1' },
-  { icon: '💍', label: 'Anneau 2' },
-  { icon: '🎒', label: 'Sac / Accessoire' },
-  { icon: '✨', label: 'Objet magique' },
-];
 
 // ── Firebase ──────────────────────────────────────────────────
 try {
@@ -534,27 +701,157 @@ function buildSheet() {
   }
 
   // Equipment
-  const equip = document.getElementById('equipGrid');
-  equip.innerHTML = '';
-  const savedEquip = JSON.parse(localStorage.getItem(`equip_${char.id}`) || '[]');
-  EQUIP_SLOTS.forEach((slot, i) => {
-    const div = document.createElement('div');
-    div.className = 'equip-slot';
-    div.innerHTML = `
-      <span class="slot-icon">${slot.icon}</span>
-      <input type="text" placeholder="${slot.label}"
-             value="${(savedEquip[i] || '').replace(/"/g, '&quot;')}"
-             data-idx="${i}"
-             onchange="saveEquip(this, '${char.id}')">
-    `;
-    equip.appendChild(div);
-  });
+  buildEquipList(char.id);
 
   const notes = localStorage.getItem(`notes_${char.id}`) || '';
   document.getElementById('notesBox').value = notes;
   document.getElementById('notesBox').dataset.charId = char.id;
 
   document.title = `Fiche — ${char.name}`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  EQUIPMENT SYSTEM
+// ════════════════════════════════════════════════════════════
+const DICE_OPTIONS = ['D4','D6','D8','D10','D12','D20','D100','2D6','2D8','3D6'];
+const EMOJI_OPTIONS = ['⚔️','🗡️','🛡️','🪖','👟','💍','🎒','✨','🏹','🔮','📜','🧪','🪄','🔱','⚡','🔥','❄️','🌿','💀','🩸','🪬','🧲','🔔','🪙','💎'];
+
+function loadEquip(charId) {
+  return JSON.parse(localStorage.getItem(`equip2_${charId}`) || '[]');
+}
+
+function saveEquipData(charId) {
+  const items = [];
+  document.querySelectorAll('.equip-item').forEach(card => {
+    items.push({
+      emoji:       card.dataset.emoji || '⚔️',
+      name:        card.querySelector('.equip-name-input')?.value || '',
+      description: card.querySelector('.equip-desc')?.value || '',
+      effects:     card.querySelector('.equip-effects')?.value || '',
+      actions:     Array.from(card.querySelectorAll('.action-row')).map(row => ({
+        name: row.querySelector('.action-name-input')?.value || '',
+        dice: row.querySelector('.action-dice-select')?.value || 'D20',
+      }))
+    });
+  });
+  localStorage.setItem(`equip2_${charId}`, JSON.stringify(items));
+  const msg = document.getElementById('savedMsg');
+  if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 1500); }
+}
+
+function buildEquipList(charId) {
+  const list = document.getElementById('equipList');
+  list.innerHTML = '';
+  const items = loadEquip(charId);
+  items.forEach(item => addEquipItemFromData(charId, item));
+}
+
+window.addEquipItem = function() {
+  const charId = viewedCharId;
+  addEquipItemFromData(charId, { emoji:'⚔️', name:'', description:'', effects:'', actions:[] });
+  saveEquipData(charId);
+};
+
+function addEquipItemFromData(charId, item) {
+  const list = document.getElementById('equipList');
+  const card = document.createElement('div');
+  card.className = 'equip-item';
+  card.dataset.emoji = item.emoji || '⚔️';
+
+  // Build actions HTML
+  const actionsHTML = (item.actions || []).map((a, i) => buildActionRowHTML(a.name, a.dice)).join('');
+  const diceOptsHTML = DICE_OPTIONS.map(d => `<option value="${d}">${d}</option>`).join('');
+
+  card.innerHTML = `
+    <div class="equip-header">
+      <div class="equip-emoji-btn" title="Changer l'icône">${item.emoji || '⚔️'}</div>
+      <input class="equip-name-input" type="text" placeholder="Nom de l'objet…" value="${(item.name||'').replace(/"/g,'&quot;')}">
+      <button class="equip-remove" title="Supprimer">✕</button>
+      <span class="equip-toggle">▾</span>
+    </div>
+    <div class="equip-body">
+      <div class="equip-field-label">Description</div>
+      <textarea class="equip-textarea equip-desc" placeholder="Apparence, origine, matériau…" rows="2">${item.description||''}</textarea>
+      <div class="equip-field-label">Effets</div>
+      <textarea class="equip-textarea equip-effects" placeholder="Bonus, malus, effets magiques…" rows="2">${item.effects||''}</textarea>
+      <div class="equip-field-label">Actions</div>
+      <div class="actions-list">${actionsHTML}</div>
+      <button class="btn-add-action">＋ Action</button>
+    </div>
+  `;
+
+  // Toggle open/close
+  card.querySelector('.equip-header').addEventListener('click', e => {
+    if (e.target.classList.contains('equip-remove')) return;
+    if (e.target.classList.contains('equip-emoji-btn') || e.target.closest('.equip-emoji-btn')) return;
+    card.classList.toggle('open');
+  });
+
+  // Remove item
+  card.querySelector('.equip-remove').addEventListener('click', e => {
+    e.stopPropagation();
+    card.remove();
+    saveEquipData(charId);
+  });
+
+  // Emoji picker
+  const emojiBtn = card.querySelector('.equip-emoji-btn');
+  emojiBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    // Close any open pickers
+    document.querySelectorAll('.emoji-picker-popup').forEach(p => p.remove());
+    const picker = document.createElement('div');
+    picker.className = 'emoji-picker-popup';
+    EMOJI_OPTIONS.forEach(em => {
+      const opt = document.createElement('div');
+      opt.className = 'emoji-opt';
+      opt.textContent = em;
+      opt.addEventListener('click', ev => {
+        ev.stopPropagation();
+        emojiBtn.textContent = em;
+        card.dataset.emoji = em;
+        picker.remove();
+        saveEquipData(charId);
+      });
+      picker.appendChild(opt);
+    });
+    emojiBtn.appendChild(picker);
+    // Close on outside click
+    setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 10);
+  });
+
+  // Add action button
+  card.querySelector('.btn-add-action').addEventListener('click', e => {
+    e.stopPropagation();
+    const actionsList = card.querySelector('.actions-list');
+    const row = document.createElement('div');
+    row.className = 'action-row';
+    row.innerHTML = buildActionRowHTML('', 'D20');
+    actionsList.appendChild(row);
+    row.querySelector('.action-remove-btn').addEventListener('click', () => { row.remove(); saveEquipData(charId); });
+    row.querySelector('.action-name-input').addEventListener('input', () => saveEquipData(charId));
+    row.querySelector('.action-dice-select').addEventListener('change', () => saveEquipData(charId));
+  });
+
+  // Wire existing action remove buttons
+  card.querySelectorAll('.action-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => { btn.closest('.action-row').remove(); saveEquipData(charId); });
+  });
+
+  // Auto-save on any input change inside the card
+  card.addEventListener('input', () => saveEquipData(charId));
+  card.addEventListener('change', () => saveEquipData(charId));
+
+  list.appendChild(card);
+}
+
+function buildActionRowHTML(name, dice) {
+  const diceOptsHTML = DICE_OPTIONS.map(d => `<option value="${d}"${d===dice?' selected':''}>${d}</option>`).join('');
+  return `<div class="action-row">
+    <input class="action-name-input" type="text" placeholder="Nom de l'action…" value="${(name||'').replace(/"/g,'&quot;')}">
+    <select class="action-dice-select">${diceOptsHTML}</select>
+    <button class="action-remove-btn" type="button">✕</button>
+  </div>`;
 }
 
 // ── GM: save stats to Firebase ────────────────────────────────
@@ -600,14 +897,6 @@ window.saveHp = function() {
   char.hp = cur; char.hpMax = max;
   sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
   if (fbDB) set(ref(fbDB, `session/hp/${char.id}`), { current: cur, max });
-};
-
-// ── Save equipment ────────────────────────────────────────────
-window.saveEquip = function(input, charId) {
-  const idx = parseInt(input.dataset.idx);
-  const saved = JSON.parse(localStorage.getItem(`equip_${charId}`) || '[]');
-  saved[idx] = input.value;
-  localStorage.setItem(`equip_${charId}`, JSON.stringify(saved));
 };
 
 // ── Save notes ────────────────────────────────────────────────
