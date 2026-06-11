@@ -125,6 +125,10 @@ body {
   object-fit: cover;
   display: block;
   background: linear-gradient(135deg, #1a1208, #0a0806);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;   /* empêche la sélection/drag de l'image */
+  draggable: false;
 }
 
 /* ── PIONS ── */
@@ -599,14 +603,14 @@ function rollStat(statKey, color, label, score, sides = 20) {
   const board  = document.getElementById('boardWrapper');
   const bw = board.clientWidth;
   const bh = board.clientHeight;
-  const margin = 70;
-  const x = margin + Math.random() * (bw - margin * 2);
-  const y = margin + Math.random() * (bh - margin * 2);
+  const margin = 8; // % margin from edges
+  const xPct = margin + Math.random() * (100 - margin * 2);
+  const yPct = margin + Math.random() * (100 - margin * 2);
 
   const success = value <= score;
 
   const dieData = {
-    id: dieId, x, y, value,
+    id: dieId, xPct, yPct, value,
     stat: statKey, label, color, score,
     success,
     owner: playerName,
@@ -649,14 +653,21 @@ function renderDie(die, animate = false) {
   const old = document.getElementById(die.id);
   if (old) old.remove();
 
-  const success = die.success; // boolean
+  // Support both old pixel coords and new % coords
+  const board = document.getElementById('boardWrapper');
+  const bw = board.clientWidth  || 800;
+  const bh = board.clientHeight || 600;
+  const px = die.xPct != null ? (die.xPct / 100) * bw : die.x;
+  const py = die.yPct != null ? (die.yPct / 100) * bh : die.y;
+
+  const success = die.success;
   const strokeColor = success ? 'rgba(255,220,60,0.95)' : 'rgba(230,60,60,0.95)';
   const textColor   = getContrastColor(die.color);
 
   const wrapper = document.createElement('div');
   wrapper.className = 'die-wrapper';
   wrapper.id = die.id;
-  wrapper.style.cssText = `left:${die.x}px; top:${die.y}px; transform:translate(-50%,-50%);`;
+  wrapper.style.cssText = `left:${px}px; top:${py}px; transform:translate(-50%,-50%);`;
 
   const hex = document.createElement('div');
   hex.className = 'die-hex' + (success ? ' success' : ' failure');
@@ -677,18 +688,15 @@ function renderDie(die, animate = false) {
   if (canDragDie) makeDieDraggable(wrapper, die.id);
 
   if (animate) {
-    // On appende d'abord, puis on force un reflow avant d'ajouter la classe
     document.getElementById('boardWrapper').appendChild(wrapper);
-    const board  = document.getElementById('boardWrapper');
-    const bw = board.clientWidth, bh = board.clientHeight;
     const hudH   = 130;
     const originX = bw / 2;
     const originY = bh + hudH / 2;
-    const dx = originX - die.x;
-    const dy = originY - die.y;
+    const dx = originX - px;
+    const dy = originY - py;
     hex.style.setProperty('--dx', dx + 'px');
     hex.style.setProperty('--dy', dy + 'px');
-    void wrapper.offsetWidth; // force reflow
+    void wrapper.offsetWidth;
     wrapper.classList.add('flying');
     wrapper.addEventListener('animationend', () => wrapper.classList.remove('flying'), { once: true });
   } else {
@@ -755,16 +763,19 @@ function makeDieDraggable(wrapper, dieId) {
     dragging = false;
     wrapper.style.cursor = 'grab';
     wrapper.style.zIndex = 10;
+    const board = document.getElementById('boardWrapper');
+    const bw = board.clientWidth, bh = board.clientHeight;
     const nx = parseFloat(wrapper.style.left);
     const ny = parseFloat(wrapper.style.top);
+    const nxPct = (nx / bw) * 100;
+    const nyPct = (ny / bh) * 100;
+    if (diceOnBoard[dieId]) {
+      diceOnBoard[dieId].xPct = nxPct;
+      diceOnBoard[dieId].yPct = nyPct;
+    }
     if (useFirebase && diceOnBoard[dieId]) {
-      diceOnBoard[dieId].x = nx;
-      diceOnBoard[dieId].y = ny;
-      set(ref(fbDB, `session/dice/${dieId}/x`), nx);
-      set(ref(fbDB, `session/dice/${dieId}/y`), ny);
-    } else if (diceOnBoard[dieId]) {
-      diceOnBoard[dieId].x = nx;
-      diceOnBoard[dieId].y = ny;
+      set(ref(fbDB, `session/dice/${dieId}/xPct`), nxPct);
+      set(ref(fbDB, `session/dice/${dieId}/yPct`), nyPct);
     }
   });
 }
@@ -940,7 +951,22 @@ buildHud();
 initFirebase();
 
 window.addEventListener('load',   () => { if (!useFirebase) renderPions({}); });
-window.addEventListener('resize', () => { if (!useFirebase) renderPions({}); else renderPions({}); });
+window.addEventListener('resize', () => {
+  // Reposition pions
+  if (!useFirebase) renderPions({});
+  else renderPions({});
+  // Reposition existing dice from % coords
+  const board = document.getElementById('boardWrapper');
+  const bw = board.clientWidth, bh = board.clientHeight;
+  document.querySelectorAll('.die-wrapper').forEach(el => {
+    const id = el.id;
+    const die = diceOnBoard[id];
+    if (die && die.xPct != null) {
+      el.style.left = (die.xPct / 100 * bw) + 'px';
+      el.style.top  = (die.yPct / 100 * bh) + 'px';
+    }
+  });
+});
 </script>
 </body>
 </html>
