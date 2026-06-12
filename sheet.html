@@ -648,67 +648,72 @@ function buildSwitcher() {
 // ── Build sheet ───────────────────────────────────────────────
 function buildSheet() {
   const char = CHARACTERS.find(c => c.id === viewedCharId);
-  if (!char) return;
+  if (!char) { console.warn('buildSheet: char not found', viewedCharId); return; }
 
-  document.getElementById('sheetAvatar').textContent = char.avatar;
-  document.getElementById('sheetAvatar').style.background = char.color + '33';
-  document.getElementById('sheetAvatar').style.borderColor = char.color;
-  document.getElementById('sheetName').textContent = char.name;
-  document.getElementById('sheetClass').textContent = char.class;
+  document.getElementById('sheetAvatar').textContent = char.avatar || '⚔️';
+  document.getElementById('sheetAvatar').style.background = (char.color || '#888') + '33';
+  document.getElementById('sheetAvatar').style.borderColor = char.color || '#888';
+  document.getElementById('sheetName').textContent  = char.name  || '—';
+  document.getElementById('sheetClass').textContent = char.class || '—';
 
-  // HP — editable for GM
+  // HP
   if (isGM) {
     document.getElementById('sheetHpCur').innerHTML =
       `<input id="hpCurInput" type="number" min="0" max="999" value="${char.hp ?? char.hpMax ?? 0}"
-        style="width:48px;background:transparent;border:none;border-bottom:1px solid #e05555;color:#e05555;font-family:'Cinzel',serif;font-size:1.4rem;text-align:center;outline:none"
-        onchange="saveHp()">`;
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid #e05555;color:#e05555;font-family:'Cinzel',serif;font-size:1.4rem;text-align:center;outline:none">`;
     document.getElementById('sheetHpMax').innerHTML =
       `/ <input id="hpMaxInput" type="number" min="0" max="999" value="${char.hpMax ?? 0}"
-        style="width:48px;background:transparent;border:none;border-bottom:1px solid rgba(245,230,200,0.3);color:rgba(245,230,200,0.45);font-family:'Cinzel',serif;font-size:0.9rem;text-align:center;outline:none"
-        onchange="saveHp()">`;
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid rgba(245,230,200,0.3);color:rgba(245,230,200,0.45);font-family:'Cinzel',serif;font-size:0.9rem;text-align:center;outline:none">`;
   } else {
     document.getElementById('sheetHpCur').textContent = char.hp ?? char.hpMax ?? '?';
     document.getElementById('sheetHpMax').textContent = `/ ${char.hpMax ?? '?'}`;
   }
 
-  // Stats
+  // Stats — guard against undefined/null stats object
   const wheel = document.getElementById('statsWheel');
   wheel.innerHTML = '';
-  Object.entries(char.stats).forEach(([key, val]) => {
-    const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
-    const pct = Math.round((val / 20) * 100);
 
-    const card = document.createElement('div');
-    card.className = 'stat-card';
-    card.style.setProperty('--stat-color', sc.color);
+  const stats = char.stats || {};
+  if (!Object.keys(stats).length) {
+    wheel.innerHTML = `<div style="color:rgba(245,230,200,0.3);font-style:italic;font-size:0.9rem;padding:0.5rem">
+      Aucune stat disponible — rechargez la page ou contactez le MJ.</div>`;
+  } else {
+    Object.entries(stats).forEach(([key, val]) => {
+      const numVal = Number(val) || 0;
+      const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
+      const pct = Math.min(100, Math.round((numVal / 20) * 100));
 
-    const statContent = isGM
-      ? `<input class="stat-edit-input" type="number" min="1" max="30"
-           value="${val}" data-stat="${key}"
-           style="width:36px;background:rgba(255,255,255,0.12);border:none;border-bottom:2px solid ${sc.color};border-radius:0;color:#fff;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;text-align:center;outline:none;padding:2px;position:relative;z-index:3"
-           onchange="saveStats()">`
-      : `<span class="hex-val" style="position:relative;z-index:3">${val}</span>`;
+      const card = document.createElement('div');
+      card.className = 'stat-card';
+      card.style.setProperty('--stat-color', sc.color);
 
-    card.innerHTML = `
-      <div class="stat-hex">
-        <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
-          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
-        </svg>
-        ${statContent}
-      </div>
-      <div class="stat-info">
-        <div class="stat-name-lbl">${sc.label}</div>
-        <div class="stat-gauge">
-          <div class="stat-gauge-fill" id="gauge_${key}" style="width:${pct}%;background:${sc.color}"></div>
+      const statContent = isGM
+        ? `<input class="stat-edit-input" type="number" min="1" max="30"
+             value="${numVal}" data-stat="${key}"
+             style="width:36px;background:rgba(255,255,255,0.12);border:none;border-bottom:2px solid ${sc.color};border-radius:0;color:#fff;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;text-align:center;outline:none;padding:2px;position:relative;z-index:3">`
+        : `<span class="hex-val" style="position:relative;z-index:3">${numVal}</span>`;
+
+      card.innerHTML = `
+        <div class="stat-hex">
+          <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
+            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+          </svg>
+          ${statContent}
         </div>
-      </div>
-    `;
-    wheel.appendChild(card);
-  });
+        <div class="stat-info">
+          <div class="stat-name-lbl">${sc.label}</div>
+          <div class="stat-gauge">
+            <div class="stat-gauge-fill" id="gauge_${key}" style="width:${pct}%;background:${sc.color}"></div>
+          </div>
+        </div>
+      `;
+      wheel.appendChild(card);
+    });
+  }
 
+  // GM save bar
   if (isGM) {
-    // Save bar for stats
     let saveBar = document.getElementById('gmSaveBar');
     if (!saveBar) {
       saveBar = document.createElement('div');
@@ -716,15 +721,14 @@ function buildSheet() {
       saveBar.style.cssText = 'width:100%;max-width:700px;display:flex;justify-content:flex-end;gap:0.6rem;align-items:center;margin-bottom:1rem';
       saveBar.innerHTML = `
         <span id="statSavedMsg" style="font-size:0.75rem;color:#27ae60;font-style:italic;opacity:0;transition:opacity 0.3s">Sauvegardé ✓</span>
-        <button onclick="saveStats(true)"
-          style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:0.4rem 1rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer">
+        <button id="statSaveBtn" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:0.4rem 1rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer">
           💾 Sauvegarder les stats
         </button>`;
       wheel.after(saveBar);
+      document.getElementById('statSaveBtn').addEventListener('click', () => window.saveStats(true));
     }
   }
 
-  // Equipment
   buildEquipList(char.id);
 
   const notes = localStorage.getItem(`notes_${char.id}`) || '';
