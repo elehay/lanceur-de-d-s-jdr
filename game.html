@@ -122,12 +122,12 @@ body {
 }
 #boardImg {
   width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   background: linear-gradient(135deg, #1a1208, #0a0806);
   user-select: none;
   -webkit-user-select: none;
-  pointer-events: none;   /* empêche la sélection/drag de l'image */
+  pointer-events: none;
   draggable: false;
 }
 
@@ -460,6 +460,52 @@ function buildPlayerChip() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  BOARD RECT HELPER
+//  Retourne les vraies dimensions et l'offset de l'image
+//  affichée (object-fit:contain peut laisser des bandes noires)
+// ════════════════════════════════════════════════════════════
+function getBoardRect() {
+  const wrapper = document.getElementById('boardWrapper');
+  const img = document.getElementById('boardImg');
+  const ww = wrapper.clientWidth;
+  const wh = wrapper.clientHeight;
+
+  // Si l'image n'est pas chargée ou n'a pas de dimensions naturelles,
+  // on utilise tout le wrapper
+  const natW = img.naturalWidth  || ww;
+  const natH = img.naturalHeight || wh;
+
+  const scaleW = ww / natW;
+  const scaleH = wh / natH;
+  const scale  = Math.min(scaleW, scaleH); // contain = scale le plus petit
+
+  const imgW = natW * scale;
+  const imgH = natH * scale;
+  const offsetX = (ww - imgW) / 2;
+  const offsetY = (wh - imgH) / 2;
+
+  return { x: offsetX, y: offsetY, w: imgW, h: imgH };
+}
+
+// Convertit des % [0-100] en pixels absolus dans le wrapper
+function pctToPixels(xPct, yPct) {
+  const r = getBoardRect();
+  return {
+    px: r.x + (xPct / 100) * r.w,
+    py: r.y + (yPct / 100) * r.h,
+  };
+}
+
+// Convertit des pixels absolus (dans le wrapper) en % [0-100]
+function pixelsToPct(px, py) {
+  const r = getBoardRect();
+  return {
+    xPct: ((px - r.x) / r.w) * 100,
+    yPct: ((py - r.y) / r.h) * 100,
+  };
+}
+
+// ════════════════════════════════════════════════════════════
 //  PIONS
 // ════════════════════════════════════════════════════════════
 function renderPions(positions) {
@@ -467,11 +513,7 @@ function renderPions(positions) {
 
   CHARACTERS.forEach(char => {
     const pos = (positions && positions[char.id]) || PION_POSITIONS[char.id] || { x:50, y:50 };
-    const board = document.getElementById('boardWrapper');
-    const bw = board.clientWidth  || 800;
-    const bh = board.clientHeight || 600;
-    const px = (pos.x / 100) * bw;
-    const py = (pos.y / 100) * bh;
+    const { px, py } = pctToPixels(pos.x, pos.y);
     const hp = hpData[char.id] || { current:'?', max:'?' };
 
     const pion = document.createElement('div');
@@ -489,7 +531,7 @@ function renderPions(positions) {
     const canDrag = isGM || char.id === charId;
     if (canDrag) makeDraggable(pion, char.id);
     if (canDrag) pion.classList.add('mine');
-    board.appendChild(pion);
+    document.getElementById('boardWrapper').appendChild(pion);
   });
 }
 
@@ -600,10 +642,8 @@ function rollStat(statKey, color, label, score, sides = 20) {
   const value = Math.floor(Math.random() * sides) + 1;
   const dieId = `die_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
 
-  const board  = document.getElementById('boardWrapper');
-  const bw = board.clientWidth;
-  const bh = board.clientHeight;
-  const margin = 8; // % margin from edges
+  const r = getBoardRect();
+  const margin = 8; // % margin from image edges
   const xPct = margin + Math.random() * (100 - margin * 2);
   const yPct = margin + Math.random() * (100 - margin * 2);
 
@@ -654,11 +694,9 @@ function renderDie(die, animate = false) {
   if (old) old.remove();
 
   // Support both old pixel coords and new % coords
-  const board = document.getElementById('boardWrapper');
-  const bw = board.clientWidth  || 800;
-  const bh = board.clientHeight || 600;
-  const px = die.xPct != null ? (die.xPct / 100) * bw : die.x;
-  const py = die.yPct != null ? (die.yPct / 100) * bh : die.y;
+  const { px, py } = die.xPct != null
+    ? pctToPixels(die.xPct, die.yPct)
+    : { px: die.x, py: die.y };
 
   const success = die.success;
   const strokeColor = success ? 'rgba(255,220,60,0.95)' : 'rgba(230,60,60,0.95)';
@@ -689,13 +727,11 @@ function renderDie(die, animate = false) {
 
   if (animate) {
     document.getElementById('boardWrapper').appendChild(wrapper);
-    const hudH   = 130;
-    const originX = bw / 2;
-    const originY = bh + hudH / 2;
-    const dx = originX - px;
-    const dy = originY - py;
-    hex.style.setProperty('--dx', dx + 'px');
-    hex.style.setProperty('--dy', dy + 'px');
+    const r = getBoardRect();
+    const originX = r.x + r.w / 2;
+    const originY = r.y + r.h + 75; // from below HUD
+    hex.style.setProperty('--dx', (originX - px) + 'px');
+    hex.style.setProperty('--dy', (originY - py) + 'px');
     void wrapper.offsetWidth;
     wrapper.classList.add('flying');
     wrapper.addEventListener('animationend', () => wrapper.classList.remove('flying'), { once: true });
@@ -763,19 +799,16 @@ function makeDieDraggable(wrapper, dieId) {
     dragging = false;
     wrapper.style.cursor = 'grab';
     wrapper.style.zIndex = 10;
-    const board = document.getElementById('boardWrapper');
-    const bw = board.clientWidth, bh = board.clientHeight;
     const nx = parseFloat(wrapper.style.left);
     const ny = parseFloat(wrapper.style.top);
-    const nxPct = (nx / bw) * 100;
-    const nyPct = (ny / bh) * 100;
+    const { xPct, yPct } = pixelsToPct(nx, ny);
     if (diceOnBoard[dieId]) {
-      diceOnBoard[dieId].xPct = nxPct;
-      diceOnBoard[dieId].yPct = nyPct;
+      diceOnBoard[dieId].xPct = xPct;
+      diceOnBoard[dieId].yPct = yPct;
     }
     if (useFirebase && diceOnBoard[dieId]) {
-      set(ref(fbDB, `session/dice/${dieId}/xPct`), nxPct);
-      set(ref(fbDB, `session/dice/${dieId}/yPct`), nyPct);
+      set(ref(fbDB, `session/dice/${dieId}/xPct`), xPct);
+      set(ref(fbDB, `session/dice/${dieId}/yPct`), yPct);
     }
   });
 }
@@ -798,12 +831,8 @@ function makeDraggable(el, cid) {
   document.addEventListener('mouseup', () => {
     if (!dragging) return;
     dragging = false;
-    if (useFirebase) {
-      const board = document.getElementById('boardWrapper');
-      const nx = parseFloat(el.style.left) / board.clientWidth  * 100;
-      const ny = parseFloat(el.style.top)  / board.clientHeight * 100;
-      set(ref(fbDB, `session/pions/${cid}`), { x: nx, y: ny });
-    }
+    const { xPct, yPct } = pixelsToPct(parseFloat(el.style.left), parseFloat(el.style.top));
+    if (useFirebase) set(ref(fbDB, `session/pions/${cid}`), { x: xPct, y: yPct });
   });
 }
 
@@ -950,20 +979,20 @@ buildSheetPills();
 buildHud();
 initFirebase();
 
-window.addEventListener('load',   () => { if (!useFirebase) renderPions({}); });
+document.getElementById('boardImg').addEventListener('load', () => {
+  // Image dimensions now known — reposition everything
+  if (useFirebase) return; // Firebase listeners will re-render
+  renderPions({});
+});
 window.addEventListener('resize', () => {
-  // Reposition pions
-  if (!useFirebase) renderPions({});
-  else renderPions({});
+  renderPions(useFirebase ? undefined : {});
   // Reposition existing dice from % coords
-  const board = document.getElementById('boardWrapper');
-  const bw = board.clientWidth, bh = board.clientHeight;
   document.querySelectorAll('.die-wrapper').forEach(el => {
-    const id = el.id;
-    const die = diceOnBoard[id];
+    const die = diceOnBoard[el.id];
     if (die && die.xPct != null) {
-      el.style.left = (die.xPct / 100 * bw) + 'px';
-      el.style.top  = (die.yPct / 100 * bh) + 'px';
+      const { px, py } = pctToPixels(die.xPct, die.yPct);
+      el.style.left = px + 'px';
+      el.style.top  = py + 'px';
     }
   });
 });
