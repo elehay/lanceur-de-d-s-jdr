@@ -572,25 +572,49 @@ try {
   const app = initializeApp(FIREBASE_CONFIG);
   fbDB = getDatabase(app);
 
-  // Sync HP from Firebase so sheet reflects live values
+  // Sync HP
   onValue(ref(fbDB, 'session/hp'), snap => {
     const data = snap.val() || {};
     CHARACTERS.forEach(c => {
-      if (data[c.id]) {
-        c.hp    = data[c.id].current;
-        c.hpMax = data[c.id].max;
-      }
+      if (data[c.id]) { c.hp = data[c.id].current; c.hpMax = data[c.id].max; }
     });
-    // Refresh HP display if we're already showing a sheet
+    const cur = CHARACTERS.find(c => c.id === viewedCharId);
+    if (!cur || isGM) return; // GM edits directly, don't overwrite inputs
     const hpCurEl = document.getElementById('sheetHpCur');
     const hpMaxEl = document.getElementById('sheetHpMax');
-    const cur = CHARACTERS.find(c => c.id === viewedCharId);
-    if (hpCurEl && cur) hpCurEl.textContent = cur.hp ?? '?';
-    if (hpMaxEl && cur) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
+    if (hpCurEl) hpCurEl.textContent = cur.hp ?? '?';
+    if (hpMaxEl) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
+  });
+
+  // Sync stats (MJ push → joueurs reçoivent)
+  onValue(ref(fbDB, 'session/chars'), snap => {
+    const data = snap.val() || {};
+    let changed = false;
+    CHARACTERS.forEach(c => {
+      if (data[c.id]?.stats) { c.stats = data[c.id].stats; changed = true; }
+    });
+    if (changed) {
+      sessionStorage.setItem('characters', JSON.stringify(CHARACTERS));
+      // Rebuild stats display if already on screen and not GM editing
+      if (!isGM) buildSheet();
+    }
   });
 } catch(e) {
   console.warn('Firebase unavailable on sheet:', e);
 }
+
+// ── Event delegation for dynamically generated inputs ─────────
+// (onchange="..." inside innerHTML doesn't work reliably in ES modules)
+document.addEventListener('change', e => {
+  if (e.target.id === 'hpCurInput' || e.target.id === 'hpMaxInput') window.saveHp?.();
+  if (e.target.classList.contains('stat-edit-input')) window.saveStats?.();
+});
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('stat-edit-input')) {
+    clearTimeout(window._statSaveTimer);
+    window._statSaveTimer = setTimeout(() => window.saveStats?.(), 600);
+  }
+});
 
 // ── GM badge ─────────────────────────────────────────────────
 if (isGM) {
@@ -879,14 +903,6 @@ window.saveStats = function(explicit = false) {
     if (msg) { msg.style.opacity = '1'; setTimeout(() => msg.style.opacity = '0', 2000); }
   }
 };
-
-// Auto-save on every keystroke (debounced 600ms)
-document.addEventListener('input', e => {
-  if (e.target.classList.contains('stat-edit-input')) {
-    clearTimeout(window._statSaveTimer);
-    window._statSaveTimer = setTimeout(() => saveStats(false), 600);
-  }
-});
 
 // ── GM: save HP to Firebase ───────────────────────────────────
 window.saveHp = function() {
