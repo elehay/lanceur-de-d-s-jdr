@@ -572,29 +572,25 @@ try {
   const app = initializeApp(FIREBASE_CONFIG);
   fbDB = getDatabase(app);
 
-  // Sync HP uniquement (les stats ne se rechargent pas automatiquement
-  // pour ne pas écraser les inputs en cours d'édition)
+  // Sync HP from Firebase so sheet reflects live values
   onValue(ref(fbDB, 'session/hp'), snap => {
     const data = snap.val() || {};
     CHARACTERS.forEach(c => {
-      if (data[c.id]) { c.hp = data[c.id].current; c.hpMax = data[c.id].max; }
+      if (data[c.id]) {
+        c.hp    = data[c.id].current;
+        c.hpMax = data[c.id].max;
+      }
     });
-    const cur = CHARACTERS.find(c => c.id === viewedCharId);
-    if (!cur || isGM) return;
+    // Refresh HP display if we're already showing a sheet
     const hpCurEl = document.getElementById('sheetHpCur');
     const hpMaxEl = document.getElementById('sheetHpMax');
-    if (hpCurEl) hpCurEl.textContent = cur.hp ?? '?';
-    if (hpMaxEl) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
+    const cur = CHARACTERS.find(c => c.id === viewedCharId);
+    if (hpCurEl && cur) hpCurEl.textContent = cur.hp ?? '?';
+    if (hpMaxEl && cur) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
   });
 } catch(e) {
   console.warn('Firebase unavailable on sheet:', e);
 }
-
-// ── Event delegation pour les inputs dynamiques ───────────────
-document.addEventListener('change', e => {
-  if (e.target.id === 'hpCurInput' || e.target.id === 'hpMaxInput') window.saveHp?.();
-  if (e.target.classList.contains('stat-edit-input')) window.saveStats?.();
-});
 
 // ── GM badge ─────────────────────────────────────────────────
 if (isGM) {
@@ -628,72 +624,67 @@ function buildSwitcher() {
 // ── Build sheet ───────────────────────────────────────────────
 function buildSheet() {
   const char = CHARACTERS.find(c => c.id === viewedCharId);
-  if (!char) { console.warn('buildSheet: char not found', viewedCharId); return; }
+  if (!char) return;
 
-  document.getElementById('sheetAvatar').textContent = char.avatar || '⚔️';
-  document.getElementById('sheetAvatar').style.background = (char.color || '#888') + '33';
-  document.getElementById('sheetAvatar').style.borderColor = char.color || '#888';
-  document.getElementById('sheetName').textContent  = char.name  || '—';
-  document.getElementById('sheetClass').textContent = char.class || '—';
+  document.getElementById('sheetAvatar').textContent = char.avatar;
+  document.getElementById('sheetAvatar').style.background = char.color + '33';
+  document.getElementById('sheetAvatar').style.borderColor = char.color;
+  document.getElementById('sheetName').textContent = char.name;
+  document.getElementById('sheetClass').textContent = char.class;
 
-  // HP
+  // HP — editable for GM
   if (isGM) {
     document.getElementById('sheetHpCur').innerHTML =
       `<input id="hpCurInput" type="number" min="0" max="999" value="${char.hp ?? char.hpMax ?? 0}"
-        style="width:48px;background:transparent;border:none;border-bottom:1px solid #e05555;color:#e05555;font-family:'Cinzel',serif;font-size:1.4rem;text-align:center;outline:none">`;
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid #e05555;color:#e05555;font-family:'Cinzel',serif;font-size:1.4rem;text-align:center;outline:none"
+        onchange="saveHp()">`;
     document.getElementById('sheetHpMax').innerHTML =
       `/ <input id="hpMaxInput" type="number" min="0" max="999" value="${char.hpMax ?? 0}"
-        style="width:48px;background:transparent;border:none;border-bottom:1px solid rgba(245,230,200,0.3);color:rgba(245,230,200,0.45);font-family:'Cinzel',serif;font-size:0.9rem;text-align:center;outline:none">`;
+        style="width:48px;background:transparent;border:none;border-bottom:1px solid rgba(245,230,200,0.3);color:rgba(245,230,200,0.45);font-family:'Cinzel',serif;font-size:0.9rem;text-align:center;outline:none"
+        onchange="saveHp()">`;
   } else {
     document.getElementById('sheetHpCur').textContent = char.hp ?? char.hpMax ?? '?';
     document.getElementById('sheetHpMax').textContent = `/ ${char.hpMax ?? '?'}`;
   }
 
-  // Stats — guard against undefined/null stats object
+  // Stats
   const wheel = document.getElementById('statsWheel');
   wheel.innerHTML = '';
+  Object.entries(char.stats).forEach(([key, val]) => {
+    const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
+    const pct = Math.round((val / 20) * 100);
 
-  const stats = char.stats || {};
-  if (!Object.keys(stats).length) {
-    wheel.innerHTML = `<div style="color:rgba(245,230,200,0.3);font-style:italic;font-size:0.9rem;padding:0.5rem">
-      Aucune stat disponible — rechargez la page ou contactez le MJ.</div>`;
-  } else {
-    Object.entries(stats).forEach(([key, val]) => {
-      const numVal = Number(val) || 0;
-      const sc = STAT_COLORS[key] || { color: '#aaa', label: key };
-      const pct = Math.min(100, Math.round((numVal / 20) * 100));
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.setProperty('--stat-color', sc.color);
 
-      const card = document.createElement('div');
-      card.className = 'stat-card';
-      card.style.setProperty('--stat-color', sc.color);
+    const statContent = isGM
+      ? `<input class="stat-edit-input" type="number" min="1" max="30"
+           value="${val}" data-stat="${key}"
+           style="width:36px;background:rgba(255,255,255,0.12);border:none;border-bottom:2px solid ${sc.color};border-radius:0;color:#fff;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;text-align:center;outline:none;padding:2px;position:relative;z-index:3"
+           onchange="saveStats()">`
+      : `<span class="hex-val" style="position:relative;z-index:3">${val}</span>`;
 
-      const statContent = isGM
-        ? `<input class="stat-edit-input" type="number" min="1" max="30"
-             value="${numVal}" data-stat="${key}"
-             style="width:36px;background:rgba(255,255,255,0.12);border:none;border-bottom:2px solid ${sc.color};border-radius:0;color:#fff;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;text-align:center;outline:none;padding:2px;position:relative;z-index:3">`
-        : `<span class="hex-val" style="position:relative;z-index:3">${numVal}</span>`;
-
-      card.innerHTML = `
-        <div class="stat-hex">
-          <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
-            <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
-          </svg>
-          ${statContent}
+    card.innerHTML = `
+      <div class="stat-hex">
+        <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="${sc.color}" opacity="0.9"/>
+          <polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+        </svg>
+        ${statContent}
+      </div>
+      <div class="stat-info">
+        <div class="stat-name-lbl">${sc.label}</div>
+        <div class="stat-gauge">
+          <div class="stat-gauge-fill" id="gauge_${key}" style="width:${pct}%;background:${sc.color}"></div>
         </div>
-        <div class="stat-info">
-          <div class="stat-name-lbl">${sc.label}</div>
-          <div class="stat-gauge">
-            <div class="stat-gauge-fill" id="gauge_${key}" style="width:${pct}%;background:${sc.color}"></div>
-          </div>
-        </div>
-      `;
-      wheel.appendChild(card);
-    });
-  }
+      </div>
+    `;
+    wheel.appendChild(card);
+  });
 
-  // GM save bar
   if (isGM) {
+    // Save bar for stats
     let saveBar = document.getElementById('gmSaveBar');
     if (!saveBar) {
       saveBar = document.createElement('div');
@@ -701,14 +692,15 @@ function buildSheet() {
       saveBar.style.cssText = 'width:100%;max-width:700px;display:flex;justify-content:flex-end;gap:0.6rem;align-items:center;margin-bottom:1rem';
       saveBar.innerHTML = `
         <span id="statSavedMsg" style="font-size:0.75rem;color:#27ae60;font-style:italic;opacity:0;transition:opacity 0.3s">Sauvegardé ✓</span>
-        <button id="statSaveBtn" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:0.4rem 1rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer">
+        <button onclick="saveStats(true)"
+          style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:0.4rem 1rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer">
           💾 Sauvegarder les stats
         </button>`;
       wheel.after(saveBar);
-      document.getElementById('statSaveBtn').addEventListener('click', () => window.saveStats(true));
     }
   }
 
+  // Equipment
   buildEquipList(char.id);
 
   const notes = localStorage.getItem(`notes_${char.id}`) || '';
@@ -888,6 +880,14 @@ window.saveStats = function(explicit = false) {
   }
 };
 
+// Auto-save on every keystroke (debounced 600ms)
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('stat-edit-input')) {
+    clearTimeout(window._statSaveTimer);
+    window._statSaveTimer = setTimeout(() => saveStats(false), 600);
+  }
+});
+
 // ── GM: save HP to Firebase ───────────────────────────────────
 window.saveHp = function() {
   const char = CHARACTERS.find(c => c.id === viewedCharId);
@@ -909,32 +909,25 @@ window.saveNotes = function() {
   setTimeout(() => msg.classList.remove('show'), 2000);
 };
 
+let saveTimer;
+document.getElementById('notesBox').addEventListener('input', () => {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNotes, 1200);
+});
+
 // ── Init ──────────────────────────────────────────────────────
 if (!CHARACTERS.length) {
-  // Don't replace body — just show an overlay so the script keeps running
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:999;font-family:"Cinzel Decorative",serif;font-size:1.1rem;color:#c9a84c;text-align:center';
-  overlay.innerHTML = `<div style="font-size:2rem">⚔️</div><div>Session expirée</div><a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic;font-size:0.9rem">→ Retourner à la taverne</a>`;
-  document.body.appendChild(overlay);
+  document.body.innerHTML = `<div style="text-align:center;padding:4rem;font-family:'Cinzel Decorative',serif;color:#c9a84c">
+    <div style="font-size:2rem">⚔️</div>
+    <div style="margin:1rem 0">Session expirée</div>
+    <a href="index.html" style="color:#f0d080;font-family:'Crimson Text',serif;font-style:italic">→ Retourner à la taverne</a>
+  </div>`;
 } else {
   if (!CHARACTERS.find(c => c.id === viewedCharId)) viewedCharId = CHARACTERS[0].id;
   buildSwitcher();
   buildSheet();
 }
-
-// Wire up buttons that use onclick= (safe to do after module loads)
-const notesBox = document.getElementById('notesBox');
-if (notesBox) {
-  let saveTimer;
-  notesBox.addEventListener('input', () => {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveNotes, 1200);
-  });
-}
-const addItemBtn = document.querySelector('.btn-add-item');
-if (addItemBtn) addItemBtn.addEventListener('click', () => window.addEquipItem());
-const saveNotesBtn = document.querySelector('.btn-save');
-if (saveNotesBtn) saveNotesBtn.addEventListener('click', saveNotes);
+</script>
 
 </body>
 </html>
