@@ -713,8 +713,19 @@ function buildSheet() {
 // ════════════════════════════════════════════════════════════
 //  EQUIPMENT SYSTEM
 // ════════════════════════════════════════════════════════════
-const DICE_OPTIONS = ['D4','D6','D8','D10','D12','D20','D100','2D6','2D8','3D6'];
 const EMOJI_OPTIONS = ['⚔️','🗡️','🛡️','🪖','👟','💍','🎒','✨','🏹','🔮','📜','🧪','🪄','🔱','⚡','🔥','❄️','🌿','💀','🩸','🪬','🧲','🔔','🪙','💎'];
+
+const STAT_DICE_OPTIONS = [
+  { value: 'none',         label: '—',            color: 'rgba(201,168,76,0.25)' },
+  { value: 'force',        label: 'Force',         color: '#e05555' },
+  { value: 'agilite',      label: 'Agilité',       color: '#8B4513' },
+  { value: 'perception',   label: 'Perception',    color: '#9b59b6' },
+  { value: 'dexterite',    label: 'Dextérité',     color: '#e67e22' },
+  { value: 'charisme',     label: 'Charisme',      color: '#f1c40f' },
+  { value: 'intelligence', label: 'Intelligence',  color: '#27ae60' },
+  { value: 'sagesse',      label: 'Sagesse',       color: '#3498db' },
+  { value: 'chance',       label: 'Chance',        color: '#ecf0f1' },
+];
 
 function loadEquip(charId) {
   return JSON.parse(localStorage.getItem(`equip2_${charId}`) || '[]');
@@ -729,8 +740,10 @@ function saveEquipData(charId) {
       description: card.querySelector('.equip-desc')?.value || '',
       effects:     card.querySelector('.equip-effects')?.value || '',
       actions:     Array.from(card.querySelectorAll('.action-row')).map(row => ({
-        name: row.querySelector('.action-name-input')?.value || '',
-        dice: row.querySelector('.action-dice-select')?.value || 'D20',
+        name:  row.querySelector('.action-name-input')?.value || '',
+        dice1: row.querySelector('.die-sel[data-slot="0"]')?.value || 'none',
+        dice2: row.querySelector('.die-sel[data-slot="1"]')?.value || 'none',
+        dice3: row.querySelector('.die-sel[data-slot="2"]')?.value || 'none',
       }))
     });
   });
@@ -758,25 +771,28 @@ function addEquipItemFromData(charId, item) {
   card.className = 'equip-item';
   card.dataset.emoji = item.emoji || '⚔️';
 
-  // Build actions HTML
-  const actionsHTML = (item.actions || []).map((a, i) => buildActionRowHTML(a.name, a.dice)).join('');
-  const diceOptsHTML = DICE_OPTIONS.map(d => `<option value="${d}">${d}</option>`).join('');
+  const actionsHTML = (item.actions || []).map(a =>
+    buildActionRowHTML(a.name, a.dice1 || 'none', a.dice2 || 'none', a.dice3 || 'none')
+  ).join('');
 
   card.innerHTML = `
     <div class="equip-header">
       <div class="equip-emoji-btn" title="Changer l'icône">${item.emoji || '⚔️'}</div>
-      <input class="equip-name-input" type="text" placeholder="Nom de l'objet…" value="${(item.name||'').replace(/"/g,'&quot;')}">
-      <button class="equip-remove" title="Supprimer">✕</button>
+      <input class="equip-name-input" type="text" placeholder="Nom de l'objet…"
+             value="${(item.name||'').replace(/"/g,'&quot;')}" ${isGM ? '' : 'readonly'}>
+      ${isGM ? '<button class="equip-remove" title="Supprimer">✕</button>' : ''}
       <span class="equip-toggle">▾</span>
     </div>
     <div class="equip-body">
       <div class="equip-field-label">Description</div>
-      <textarea class="equip-textarea equip-desc" placeholder="Apparence, origine, matériau…" rows="2">${item.description||''}</textarea>
+      <textarea class="equip-textarea equip-desc" placeholder="Apparence, origine, matériau…"
+                rows="2" ${isGM ? '' : 'readonly'}>${item.description||''}</textarea>
       <div class="equip-field-label">Effets</div>
-      <textarea class="equip-textarea equip-effects" placeholder="Bonus, malus, effets magiques…" rows="2">${item.effects||''}</textarea>
+      <textarea class="equip-textarea equip-effects" placeholder="Bonus, malus, effets magiques…"
+                rows="2" ${isGM ? '' : 'readonly'}>${item.effects||''}</textarea>
       <div class="equip-field-label">Actions</div>
       <div class="actions-list">${actionsHTML}</div>
-      <button class="btn-add-action">＋ Action</button>
+      ${isGM ? '<button class="btn-add-action">＋ Action</button>' : ''}
     </div>
   `;
 
@@ -787,71 +803,97 @@ function addEquipItemFromData(charId, item) {
     card.classList.toggle('open');
   });
 
-  // Remove item
-  card.querySelector('.equip-remove').addEventListener('click', e => {
-    e.stopPropagation();
-    card.remove();
-    saveEquipData(charId);
-  });
-
-  // Emoji picker
-  const emojiBtn = card.querySelector('.equip-emoji-btn');
-  emojiBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    // Close any open pickers
-    document.querySelectorAll('.emoji-picker-popup').forEach(p => p.remove());
-    const picker = document.createElement('div');
-    picker.className = 'emoji-picker-popup';
-    EMOJI_OPTIONS.forEach(em => {
-      const opt = document.createElement('div');
-      opt.className = 'emoji-opt';
-      opt.textContent = em;
-      opt.addEventListener('click', ev => {
-        ev.stopPropagation();
-        emojiBtn.textContent = em;
-        card.dataset.emoji = em;
-        picker.remove();
-        saveEquipData(charId);
-      });
-      picker.appendChild(opt);
+  if (isGM) {
+    // Remove item
+    card.querySelector('.equip-remove').addEventListener('click', e => {
+      e.stopPropagation();
+      card.remove();
+      saveEquipData(charId);
     });
-    emojiBtn.appendChild(picker);
-    // Close on outside click
-    setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 10);
-  });
 
-  // Add action button
-  card.querySelector('.btn-add-action').addEventListener('click', e => {
-    e.stopPropagation();
-    const actionsList = card.querySelector('.actions-list');
-    const row = document.createElement('div');
-    row.className = 'action-row';
-    row.innerHTML = buildActionRowHTML('', 'D20');
-    actionsList.appendChild(row);
-    row.querySelector('.action-remove-btn').addEventListener('click', () => { row.remove(); saveEquipData(charId); });
-    row.querySelector('.action-name-input').addEventListener('input', () => saveEquipData(charId));
-    row.querySelector('.action-dice-select').addEventListener('change', () => saveEquipData(charId));
-  });
+    // Emoji picker
+    const emojiBtn = card.querySelector('.equip-emoji-btn');
+    emojiBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      document.querySelectorAll('.emoji-picker-popup').forEach(p => p.remove());
+      const picker = document.createElement('div');
+      picker.className = 'emoji-picker-popup';
+      EMOJI_OPTIONS.forEach(em => {
+        const opt = document.createElement('div');
+        opt.className = 'emoji-opt';
+        opt.textContent = em;
+        opt.addEventListener('click', ev => {
+          ev.stopPropagation();
+          emojiBtn.textContent = em;
+          card.dataset.emoji = em;
+          picker.remove();
+          saveEquipData(charId);
+        });
+        picker.appendChild(opt);
+      });
+      emojiBtn.appendChild(picker);
+      setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 10);
+    });
 
-  // Wire existing action remove buttons
-  card.querySelectorAll('.action-remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => { btn.closest('.action-row').remove(); saveEquipData(charId); });
-  });
+    // Add action button
+    card.querySelector('.btn-add-action').addEventListener('click', e => {
+      e.stopPropagation();
+      const actionsList = card.querySelector('.actions-list');
+      const row = document.createElement('div');
+      row.className = 'action-row';
+      row.innerHTML = buildActionRowHTML('', 'none', 'none', 'none');
+      actionsList.appendChild(row);
+      wireActionRow(row, charId);
+    });
 
-  // Auto-save on any input change inside the card
-  card.addEventListener('input', () => saveEquipData(charId));
-  card.addEventListener('change', () => saveEquipData(charId));
+    // Auto-save
+    card.addEventListener('input',  () => saveEquipData(charId));
+    card.addEventListener('change', () => saveEquipData(charId));
+  }
+
+  // Wire existing action rows
+  card.querySelectorAll('.action-row').forEach(row => wireActionRow(row, charId));
 
   list.appendChild(card);
 }
 
-function buildActionRowHTML(name, dice) {
-  const diceOptsHTML = DICE_OPTIONS.map(d => `<option value="${d}"${d===dice?' selected':''}>${d}</option>`).join('');
+function buildActionRowHTML(name, dice1, dice2, dice3) {
   return `<div class="action-row">
-    <input class="action-name-input" type="text" placeholder="Nom de l'action…" value="${(name||'').replace(/"/g,'&quot;')}">
-    <select class="action-dice-select">${diceOptsHTML}</select>
-    <button class="action-remove-btn" type="button">✕</button>
+    <input class="action-name-input" type="text" placeholder="Nom de l'action…"
+           value="${(name||'').replace(/"/g,'&quot;')}" ${isGM ? '' : 'readonly'}>
+    ${buildDieSelectHTML(0, dice1)}
+    ${buildDieSelectHTML(1, dice2)}
+    ${buildDieSelectHTML(2, dice3)}
+    ${isGM ? '<button class="action-remove-btn" type="button">✕</button>' : ''}
   </div>`;
+}
+
+function buildDieSelectHTML(slot, selected) {
+  const s = STAT_DICE_OPTIONS.find(o => o.value === selected) || STAT_DICE_OPTIONS[0];
+  const opts = STAT_DICE_OPTIONS.map(o =>
+    `<option value="${o.value}" ${o.value === selected ? 'selected' : ''}>${o.label}</option>`
+  ).join('');
+  return `<select class="die-sel" data-slot="${slot}"
+    style="background:rgba(0,0,0,0.35);border:1px solid ${s.color};border-radius:6px;padding:0.25rem 0.35rem;color:${s.color};font-family:'Cinzel',serif;font-size:0.68rem;outline:none;min-width:78px;cursor:${isGM?'pointer':'default'}"
+    ${isGM ? '' : 'disabled'}>${opts}</select>`;
+}
+
+function wireActionRow(row, charId) {
+  if (isGM) {
+    row.querySelector('.action-remove-btn')?.addEventListener('click', () => {
+      row.remove();
+      saveEquipData(charId);
+    });
+  }
+  // Update color on change
+  row.querySelectorAll('.die-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const s = STAT_DICE_OPTIONS.find(o => o.value === sel.value) || STAT_DICE_OPTIONS[0];
+      sel.style.borderColor = s.color;
+      sel.style.color = s.color;
+      saveEquipData(charId);
+    });
+  });
 }
 
 // ── GM: save stats to Firebase ────────────────────────────────
@@ -926,6 +968,11 @@ if (!CHARACTERS.length) {
   if (!CHARACTERS.find(c => c.id === viewedCharId)) viewedCharId = CHARACTERS[0].id;
   buildSwitcher();
   buildSheet();
+  // Masquer le bouton ajout d'objet pour les joueurs
+  if (!isGM) {
+    const addBtn = document.querySelector('.btn-add-item');
+    if (addBtn) addBtn.style.display = 'none';
+  }
 }
 </script>
 
