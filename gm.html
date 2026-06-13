@@ -295,6 +295,76 @@ body {
   line-height:1.4;
 }
 
+/* ── JETONS MJ ── */
+.token-form {
+  display: flex; flex-direction: column; gap: 0.45rem;
+}
+.token-input {
+  width: 100%;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(39,174,96,0.2);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  color: var(--parchment);
+  font-family: 'Crimson Text', serif;
+  font-size: 0.9rem;
+  outline: none;
+}
+.token-input:focus { border-color: rgba(39,174,96,0.5); }
+.token-color-row {
+  display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;
+}
+.token-color-swatch {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer; transition: transform 0.12s;
+  flex-shrink: 0;
+}
+.token-color-swatch:hover { transform: scale(1.15); }
+.token-color-swatch.selected { border-color: #fff; }
+
+.token-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+.token-list-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; color: rgba(245,230,200,0.7);
+}
+.token-list-dot {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+}
+.token-list-name { flex: 1; font-family: 'Crimson Text', serif; }
+.token-del-btn {
+  background: none; border: none;
+  color: rgba(224,85,85,0.4); font-size: 0.85rem;
+  cursor: pointer; transition: color 0.15s; padding: 0;
+}
+.token-del-btn:hover { color: #e05555; }
+
+/* Jetons sur le plateau */
+.gm-token {
+  position: absolute;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+  user-select: none;
+  transition: transform 0.12s;
+}
+.gm-token:hover { transform: translate(-50%,-50%) scale(1.12); }
+.gm-token:active { cursor: grabbing; }
+.gm-token-label {
+  position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  font-family: 'Cinzel', serif; font-size: 0.55rem;
+  color: white; text-shadow: 0 1px 3px #000;
+  white-space: nowrap; pointer-events: none;
+}
+
 /* Login guard */
 #gmGuard {
   position:fixed; inset:0;
@@ -344,7 +414,23 @@ body {
     <div class="sidebar-section" style="font-size:0.78rem;color:rgba(245,230,200,0.35);font-style:italic;line-height:1.5">
       Clique sur une stat colorée<br>d'un joueur pour lancer<br>son dé secrètement.
     </div>
-  </div>
+
+    <!-- JETONS -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">Jetons (ennemis)</div>
+      <div class="token-form">
+        <input class="token-input" id="tokenName" type="text" placeholder="Nom du jeton (ex: Gobelin)">
+        <input class="token-input" id="tokenEmoji" type="text" placeholder="Emoji (ex: 👺)" maxlength="2" style="width:70px">
+        <div class="token-color-row" id="tokenColorPicker"></div>
+        <button onclick="addToken()"
+          style="background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.3);border-radius:6px;padding:0.35rem;color:#27ae60;font-family:'Cinzel',serif;font-size:0.65rem;letter-spacing:0.06em;cursor:pointer">
+          ＋ Placer le jeton
+        </button>
+      </div>
+      <div class="token-list" id="tokenList"></div>
+    </div>
+
+  </div><!-- fin #sidebar -->
 
   <!-- BOARD + HUD -->
   <div id="boardArea">
@@ -651,9 +737,150 @@ onValue(ref(fbDB, 'session/boardImage'), snap => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+//  JETONS MJ (ennemis sur le plateau PUBLIC via Firebase)
+// ════════════════════════════════════════════════════════════
+const TOKEN_COLORS = [
+  '#e05555','#e67e22','#f1c40f','#27ae60','#3498db',
+  '#9b59b6','#e91e8c','#ecf0f1','#8B4513','#1abc9c'
+];
+let selectedTokenColor = TOKEN_COLORS[0];
+
+function buildTokenColorPicker() {
+  const row = document.getElementById('tokenColorPicker');
+  if (!row) return;
+  TOKEN_COLORS.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'token-color-swatch' + (color === selectedTokenColor ? ' selected' : '');
+    sw.style.background = color;
+    sw.title = color;
+    sw.addEventListener('click', () => {
+      selectedTokenColor = color;
+      row.querySelectorAll('.token-color-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    row.appendChild(sw);
+  });
+}
+
+// getBoardRect pour le plateau privé MJ
+function getGMBoardRect() {
+  const wrapper = document.getElementById('boardWrapper');
+  const img = document.getElementById('boardImg');
+  const ww = wrapper.clientWidth, wh = wrapper.clientHeight;
+  const natW = img.naturalWidth  || ww;
+  const natH = img.naturalHeight || wh;
+  const scale = Math.min(ww / natW, wh / natH);
+  const imgW = natW * scale, imgH = natH * scale;
+  return { x: (ww - imgW) / 2, y: (wh - imgH) / 2, w: imgW, h: imgH };
+}
+
+function gmPctToPixels(xPct, yPct) {
+  const r = getGMBoardRect();
+  return { px: r.x + (xPct / 100) * r.w, py: r.y + (yPct / 100) * r.h };
+}
+function gmPixelsToPct(px, py) {
+  const r = getGMBoardRect();
+  return { xPct: ((px - r.x) / r.w) * 100, yPct: ((py - r.y) / r.h) * 100 };
+}
+
+window.addToken = function() {
+  const name  = document.getElementById('tokenName').value.trim() || 'Ennemi';
+  const emoji = document.getElementById('tokenEmoji').value.trim() || '💀';
+  const color = selectedTokenColor;
+  const tokenId = `token_${Date.now()}`;
+
+  const tokenData = { id: tokenId, name, emoji, color, xPct: 50, yPct: 50 };
+  set(ref(fbDB, `session/tokens/${tokenId}`), tokenData);
+
+  document.getElementById('tokenName').value  = '';
+  document.getElementById('tokenEmoji').value = '';
+};
+
+function deleteToken(tokenId) {
+  remove(ref(fbDB, `session/tokens/${tokenId}`));
+}
+window.deleteToken = deleteToken;
+
+function renderGMToken(token) {
+  const old = document.getElementById(token.id);
+  if (old) old.remove();
+
+  const { px, py } = gmPctToPixels(token.xPct ?? 50, token.yPct ?? 50);
+  const el = document.createElement('div');
+  el.className = 'gm-token';
+  el.id = token.id;
+  el.dataset.xpct = token.xPct ?? 50;
+  el.dataset.ypct = token.yPct ?? 50;
+  el.style.cssText = `left:${px}px;top:${py}px;background:${token.color};`;
+  el.innerHTML = `${token.emoji}<span class="gm-token-label">${token.name}</span>`;
+
+  // Drag
+  let dragging = false, sx, sy, ox, oy;
+  el.addEventListener('mousedown', e => {
+    dragging = true; sx = e.clientX; sy = e.clientY;
+    ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+    el.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    el.style.left = (ox + e.clientX - sx) + 'px';
+    el.style.top  = (oy + e.clientY - sy) + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return; dragging = false;
+    el.style.cursor = 'grab';
+    const { xPct, yPct } = gmPixelsToPct(parseFloat(el.style.left), parseFloat(el.style.top));
+    set(ref(fbDB, `session/tokens/${token.id}/xPct`), xPct);
+    set(ref(fbDB, `session/tokens/${token.id}/yPct`), yPct);
+  });
+
+  document.getElementById('boardWrapper').appendChild(el);
+}
+
+function rebuildTokenList(tokens) {
+  const list = document.getElementById('tokenList');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.values(tokens).forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'token-list-item';
+    item.innerHTML = `
+      <div class="token-list-dot" style="background:${t.color}"></div>
+      <span style="font-size:1rem">${t.emoji}</span>
+      <span class="token-list-name">${t.name}</span>
+      <button class="token-del-btn" title="Supprimer">✕</button>
+    `;
+    item.querySelector('.token-del-btn').addEventListener('click', () => deleteToken(t.id));
+    list.appendChild(item);
+  });
+}
+
+// Sync tokens Firebase → plateau MJ
+onValue(ref(fbDB, 'session/tokens'), snap => {
+  document.querySelectorAll('.gm-token').forEach(el => el.remove());
+  const data = snap.val() || {};
+  Object.values(data).forEach(renderGMToken);
+  rebuildTokenList(data);
+});
+
+// Reposition tokens on resize
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.gm-token').forEach(el => {
+    const xPct = parseFloat(el.dataset.xpct);
+    const yPct = parseFloat(el.dataset.ypct);
+    if (!isNaN(xPct)) {
+      const { px, py } = gmPctToPixels(xPct, yPct);
+      el.style.left = px + 'px';
+      el.style.top  = py + 'px';
+    }
+  });
+});
+
 // ── Init ──────────────────────────────────────────────────────
 buildDiceRow();
 buildPlayerList();
+buildTokenColorPicker();
 </script>
 </body>
 </html>
