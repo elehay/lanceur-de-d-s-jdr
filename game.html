@@ -471,6 +471,29 @@ body {
 }
 .action-die-none { display: none; }
 
+/* ── GM TOKENS (ennemis visibles par tous) ── */
+.gm-token {
+  position: absolute;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+  user-select: none;
+  pointer-events: none; /* joueurs ne peuvent pas les déplacer */
+}
+.gm-token-label {
+  position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  font-family: 'Cinzel', serif; font-size: 0.55rem;
+  color: white; text-shadow: 0 1px 3px #000;
+  white-space: nowrap; pointer-events: none;
+}
+
 /* Login guard */
 #loginBlock {
   position: fixed; inset: 0;
@@ -1022,6 +1045,58 @@ function getContrastColor(hex) {
   return (0.299*r + 0.587*g + 0.114*b) > 145 ? '#111' : '#fff';
 }
 
+// ── Render GM token (ennemi) ──────────────────────────────────
+// Draggable par le MJ sur le plateau principal, lecture seule pour les joueurs
+function renderGMToken(token) {
+  const old = document.getElementById(token.id);
+  if (old) old.remove();
+
+  const { px, py } = pctToPixels(token.xPct ?? 50, token.yPct ?? 50);
+
+  const el = document.createElement('div');
+  el.className = 'gm-token';
+  el.id = token.id;
+  el.dataset.xpct = token.xPct ?? 50;
+  el.dataset.ypct = token.yPct ?? 50;
+  el.style.cssText = `left:${px}px; top:${py}px; background:${token.color};`;
+  el.innerHTML = `${token.emoji}<span class="gm-token-label">${token.name}</span>`;
+
+  if (isGM) {
+    el.style.cursor = 'grab';
+    el.style.pointerEvents = 'auto';
+
+    let dragging = false, sx, sy, ox, oy;
+    el.addEventListener('mousedown', e => {
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+      el.style.cursor = 'grabbing';
+      el.style.zIndex = 50;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      el.style.left = (ox + e.clientX - sx) + 'px';
+      el.style.top  = (oy + e.clientY - sy) + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      el.style.cursor = 'grab';
+      el.style.zIndex = 6;
+      const { xPct, yPct } = pixelsToPct(parseFloat(el.style.left), parseFloat(el.style.top));
+      el.dataset.xpct = xPct;
+      el.dataset.ypct = yPct;
+      if (useFirebase) {
+        set(ref(fbDB, `session/tokens/${token.id}/xPct`), xPct);
+        set(ref(fbDB, `session/tokens/${token.id}/yPct`), yPct);
+      }
+    });
+  }
+
+  document.getElementById('boardWrapper').appendChild(el);
+}
+
 // ════════════════════════════════════════════════════════════
 //  FIREBASE INIT  (ES module imports)
 // ════════════════════════════════════════════════════════════
@@ -1086,6 +1161,13 @@ function initFirebase() {
         buildHud();
       }
     });
+    // ── Token sync (ennemis MJ → tous joueurs) ──
+    onValue(ref(fbDB, 'session/tokens'), snap => {
+      document.querySelectorAll('.gm-token').forEach(el => el.remove());
+      const data = snap.val() || {};
+      Object.values(data).forEach(renderGMToken);
+    });
+
     onValue(ref(fbDB, `session/pions/${charId}`), snap => {
       if (!snap.exists()) {
         const myPos = PION_POSITIONS[charId] || { x:50, y:50 };
@@ -1229,6 +1311,16 @@ window.addEventListener('resize', () => {
     const die = diceOnBoard[el.id];
     if (die && die.xPct != null) {
       const { px, py } = pctToPixels(die.xPct, die.yPct);
+      el.style.left = px + 'px';
+      el.style.top  = py + 'px';
+    }
+  });
+  // Reposition GM tokens
+  document.querySelectorAll('.gm-token').forEach(el => {
+    const xPct = parseFloat(el.dataset.xpct);
+    const yPct = parseFloat(el.dataset.ypct);
+    if (!isNaN(xPct)) {
+      const { px, py } = pctToPixels(xPct, yPct);
       el.style.left = px + 'px';
       el.style.top  = py + 'px';
     }
