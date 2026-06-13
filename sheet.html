@@ -543,7 +543,13 @@ body {
 <!-- ÉQUIPEMENT -->
 <div class="section-title">Équipement</div>
 <div class="equip-list" id="equipList"></div>
-<button class="btn-add-item" onclick="addEquipItem()">＋ Ajouter un objet</button>
+<div style="width:100%;max-width:700px;display:flex;gap:0.6rem;align-items:center;margin-bottom:2rem">
+  <button class="btn-add-item" id="addItemBtn" style="margin-bottom:0;flex:1">＋ Ajouter un objet</button>
+  <button id="saveEquipBtn"
+    style="flex-shrink:0;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:0.5rem 1.1rem;color:var(--gold);font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.07em;cursor:pointer;transition:background 0.15s;white-space:nowrap">
+    💾 Sauvegarder
+  </button>
+</div>
 
 <!-- NOTES -->
 <div class="section-title">Notes & Histoire</div>
@@ -864,9 +870,11 @@ function addEquipItemFromData(charId, item) {
       wireActionRow(row, charId);
     });
 
-    // Auto-save
-    card.addEventListener('input',  () => saveEquipData(charId));
-    card.addEventListener('change', () => saveEquipData(charId));
+    // Auto-save uniquement sur les changements de dés (pas sur la saisie texte)
+    // La sauvegarde texte se fait via le bouton dédié
+    card.addEventListener('change', e => {
+      if (e.target.classList.contains('die-sel')) saveEquipData(charId);
+    });
   }
 
   // Wire existing action rows
@@ -903,13 +911,12 @@ function wireActionRow(row, charId) {
       saveEquipData(charId);
     });
   }
-  // Update color on change
+  // Update color visually on change (save handled by card's change listener)
   row.querySelectorAll('.die-sel').forEach(sel => {
     sel.addEventListener('change', () => {
       const s = STAT_DICE_OPTIONS.find(o => o.value === sel.value) || STAT_DICE_OPTIONS[0];
       sel.style.borderColor = s.color;
       sel.style.color = s.color;
-      saveEquipData(charId);
     });
   });
 }
@@ -986,10 +993,15 @@ if (!CHARACTERS.length) {
   if (!CHARACTERS.find(c => c.id === viewedCharId)) viewedCharId = CHARACTERS[0].id;
   buildSwitcher();
   buildSheet();
-  // Masquer le bouton ajout d'objet pour les joueurs
+  // Boutons équipement
+  const addItemBtn   = document.getElementById('addItemBtn');
+  const saveEquipBtn = document.getElementById('saveEquipBtn');
   if (!isGM) {
-    const addBtn = document.querySelector('.btn-add-item');
-    if (addBtn) addBtn.style.display = 'none';
+    if (addItemBtn)   addItemBtn.style.display   = 'none';
+    if (saveEquipBtn) saveEquipBtn.style.display = 'none';
+  } else {
+    if (addItemBtn)   addItemBtn.addEventListener('click', () => window.addEquipItem());
+    if (saveEquipBtn) saveEquipBtn.addEventListener('click', () => saveEquipData(viewedCharId));
   }
 }
 </script>
