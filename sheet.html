@@ -556,9 +556,9 @@ body {
 </div>
 
 <script type="module">
-import { initializeApp }                    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { FIREBASE_CONFIG }                  from "./config.js";
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { FIREBASE_CONFIG }                        from "./config.js";
 
 // ── Session ───────────────────────────────────────────────────
 let CHARACTERS = JSON.parse(sessionStorage.getItem('characters') || '[]');
@@ -587,6 +587,19 @@ try {
     const cur = CHARACTERS.find(c => c.id === viewedCharId);
     if (hpCurEl && cur) hpCurEl.textContent = cur.hp ?? '?';
     if (hpMaxEl && cur) hpMaxEl.textContent = `/ ${cur.hpMax ?? '?'}`;
+  });
+
+  // Sync équipement : recharge la liste si on n'est pas en train d'éditer
+  onValue(ref(fbDB, 'session/equip'), snap => {
+    const data = snap.val() || {};
+    // Met en cache dans localStorage pour accès hors-ligne
+    Object.entries(data).forEach(([charId, items]) => {
+      localStorage.setItem(`equip2_${charId}`, JSON.stringify(items));
+    });
+    // Rebuild si le perso affiché est concerné et qu'aucun picker n'est ouvert
+    if (data[viewedCharId] && !document.querySelector('.emoji-picker-popup')) {
+      buildEquipList(viewedCharId);
+    }
   });
 } catch(e) {
   console.warn('Firebase unavailable on sheet:', e);
@@ -728,6 +741,7 @@ const STAT_DICE_OPTIONS = [
 ];
 
 function loadEquip(charId) {
+  // Priorité : localStorage (cache local), Firebase sync se chargera du reste
   return JSON.parse(localStorage.getItem(`equip2_${charId}`) || '[]');
 }
 
@@ -747,7 +761,11 @@ function saveEquipData(charId) {
       }))
     });
   });
+  // Sauvegarde locale (cache)
   localStorage.setItem(`equip2_${charId}`, JSON.stringify(items));
+  // Sauvegarde Firebase (partagée avec tous)
+  if (fbDB) set(ref(fbDB, `session/equip/${charId}`), items);
+
   const msg = document.getElementById('savedMsg');
   if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 1500); }
 }
