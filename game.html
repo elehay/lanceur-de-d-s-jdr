@@ -347,6 +347,130 @@ body {
   padding: 0 0.4rem;
 }
 
+/* ── SIDE PANELS ── */
+#sideLeft, #sideRight {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 300px;
+  background: rgba(10,8,5,0.96);
+  border: 1px solid var(--border);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  backdrop-filter: blur(8px);
+}
+#sideLeft  { left: 0;  transform: translateX(-100%); border-right-color: var(--border); border-left: none; }
+#sideRight { right: 0; transform: translateX(100%);  border-left-color:  var(--border); border-right: none; }
+#sideLeft.open  { transform: translateX(0); }
+#sideRight.open { transform: translateX(0); }
+
+/* Tab buttons on the edge of the board */
+.panel-tab {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  background: rgba(13,10,7,0.95);
+  border: 1px solid var(--border);
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 0.8rem 0.3rem;
+  cursor: pointer;
+  z-index: 31;
+  border-radius: 0 6px 6px 0;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.panel-tab:hover { background: rgba(201,168,76,0.12); color: var(--gold-light); }
+#tabLeft  { left: 0;  border-left: none; border-radius: 0 6px 6px 0; }
+#tabRight { right: 0; border-right: none; border-radius: 6px 0 0 6px; writing-mode: vertical-lr; }
+
+/* Panel header */
+.panel-header {
+  padding: 0.9rem 1rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.75rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+.panel-close {
+  background: none; border: none;
+  color: rgba(201,168,76,0.4);
+  font-size: 1rem; cursor: pointer;
+  transition: color 0.15s; padding: 0;
+}
+.panel-close:hover { color: var(--gold); }
+
+/* Panel body */
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  font-family: 'Crimson Text', serif;
+  font-size: 0.92rem;
+  color: rgba(245,230,200,0.75);
+  line-height: 1.6;
+}
+.panel-body::-webkit-scrollbar { width: 3px; }
+.panel-body::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.25); }
+
+/* Rules section */
+.rules-section { margin-bottom: 1.2rem; }
+.rules-section h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+.rules-section p { margin-bottom: 0.4rem; opacity: 0.75; }
+
+/* Actions panel */
+.action-entry {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(201,168,76,0.12);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+.action-entry-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--gold-light);
+  margin-bottom: 0.45rem;
+}
+.action-dice-row {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.action-die-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 20px;
+  padding: 0.2rem 0.55rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+.action-die-none { display: none; }
+
 /* Login guard */
 #loginBlock {
   position: fixed; inset: 0;
@@ -379,13 +503,66 @@ body {
 
 <!-- BOARD -->
 <div id="boardWrapper">
-  <!--
-    IMAGE DU PLATEAU :
-    Option A — fichier local : <img id="boardImg" src="map.jpg" alt="plateau">
-    Option B — URL           : <img id="boardImg" src="https://..." alt="plateau">
-    Option C — MJ via Firebase: mettre l'URL dans session/boardImage dans la DB
-  -->
   <img id="boardImg" src="" alt="plateau">
+
+  <!-- LEFT TAB -->
+  <div class="panel-tab" id="tabLeft" onclick="togglePanel('left')">📜 Règles</div>
+
+  <!-- RIGHT TAB -->
+  <div class="panel-tab" id="tabRight" onclick="togglePanel('right')">⚔️ Actions</div>
+
+  <!-- LEFT PANEL : Règles -->
+  <div id="sideLeft">
+    <div class="panel-header">
+      <span class="panel-title">📜 Règles du jeu</span>
+      <button class="panel-close" onclick="togglePanel('left')">✕</button>
+    </div>
+    <div class="panel-body" id="rulesBody">
+
+      <div class="rules-section">
+        <h3>Système de base</h3>
+        <p>Chaque joueur possède 8 caractéristiques notées de 1 à 20. Pour réussir une action, le joueur doit obtenir un résultat inférieur ou égal à la caractéristique concernée sur un dé à 20 faces.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>Lancer de dés</h3>
+        <p>Sélectionnez la caractéristique dans la barre en bas et cliquez pour lancer votre dé. Un résultat ≤ à votre stat = réussite (halo doré). Un résultat > à votre stat = échec (halo rouge).</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>Tour de jeu</h3>
+        <p><em>— Placeholder —</em><br>Décrivez ici le déroulement d'un tour, l'initiative, les actions disponibles, etc.</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>Combat</h3>
+        <p><em>— Placeholder —</em><br>Règles de combat, attaque, défense, dégâts…</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>Magie</h3>
+        <p><em>— Placeholder —</em><br>Règles de la magie, sorts, coûts, effets…</p>
+      </div>
+
+      <div class="rules-section">
+        <h3>Repos &amp; Récupération</h3>
+        <p><em>— Placeholder —</em><br>Conditions de repos, regain de PV, ressources…</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL : Actions -->
+  <div id="sideRight">
+    <div class="panel-header">
+      <span class="panel-title">⚔️ Actions possibles</span>
+      <button class="panel-close" onclick="togglePanel('right')">✕</button>
+    </div>
+    <div class="panel-body" id="actionsBody">
+      <!-- Généré par buildActionsPanel() -->
+    </div>
+  </div>
+
 </div>
 
 <!-- HUD -->
@@ -961,6 +1138,66 @@ function buildSheetPills() {
   });
 }
 
+// ════════════════════════════════════════════════════════════
+//  SIDE PANELS
+// ════════════════════════════════════════════════════════════
+
+// ── Données des actions ──────────────────────────────────────
+// Ajoute tes actions ici. Chaque dé référence une stat ou null.
+const ACTIONS_DATA = [
+  {
+    name: 'Danser',
+    desc: 'Impressionner ou distraire par la danse.',
+    dice: [
+      { label: 'Charisme',  color: '#f1c40f' },
+      { label: 'Force',     color: '#e05555' },
+      { label: 'Agilité',   color: '#8B4513' },
+    ]
+  },
+  // Ajoute d'autres actions ci-dessous :
+  // {
+  //   name: 'Attaquer',
+  //   desc: 'Frapper au corps à corps.',
+  //   dice: [
+  //     { label: 'Force',     color: '#e05555' },
+  //     { label: 'Dextérité', color: '#e67e22' },
+  //     null,
+  //   ]
+  // },
+];
+
+function buildActionsPanel() {
+  const body = document.getElementById('actionsBody');
+  if (!body) return;
+  body.innerHTML = '';
+
+  ACTIONS_DATA.forEach(action => {
+    const entry = document.createElement('div');
+    entry.className = 'action-entry';
+
+    const diceHTML = (action.dice || []).filter(Boolean).map(d =>
+      `<span class="action-die-pill" style="color:${d.color};border-color:${d.color};background:${d.color}1a">
+        D20 &nbsp;<span style="opacity:0.75;font-size:0.6rem">${d.label}</span>
+      </span>`
+    ).join('');
+
+    entry.innerHTML = `
+      <div class="action-entry-name">${action.name}</div>
+      ${action.desc ? `<div style="font-size:0.82rem;opacity:0.5;margin-bottom:0.45rem;font-style:italic">${action.desc}</div>` : ''}
+      <div class="action-dice-row">${diceHTML}</div>
+    `;
+    body.appendChild(entry);
+  });
+}
+
+function togglePanel(side) {
+  const panel = document.getElementById(side === 'left' ? 'sideLeft' : 'sideRight');
+  const other  = document.getElementById(side === 'left' ? 'sideRight' : 'sideLeft');
+  other.classList.remove('open');
+  panel.classList.toggle('open');
+}
+window.togglePanel = togglePanel;
+
 // ── GM shortcut in top bar ────────────────────────────────────
 if (sessionStorage.getItem('isGM') === 'true') {
   const topBar = document.getElementById('topBar');
@@ -977,6 +1214,7 @@ if (sessionStorage.getItem('isGM') === 'true') {
 buildPlayerChip();
 buildSheetPills();
 buildHud();
+buildActionsPanel();
 initFirebase();
 
 document.getElementById('boardImg').addEventListener('load', () => {
