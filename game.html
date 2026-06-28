@@ -543,13 +543,35 @@ body {
     <div class="panel-body" id="rulesBody">
 
       <div class="rules-section">
-        <h3>Statistiques</h3>
+        <h2>Statistiques</h2>
         <p>Chaque joueur possède 8 caractéristiques notées de 1 à 20. Chaqu'une de ses stats ont une couleur et une statistique de faiblesse, comme présenté dans la roue ci-dessous. 
         Pour réussir un lancer de stat, il faut que le numéro obtenu soit inférieur ou égal à votre stat. Cette vérification est faite automatiquement lorsque vous lancez le dé de la bonne stat</p>
-        <div class="rules-section">
-          <h4>Lancer de dés</h4>
+          <h3>Lancer de dés</h3>
           <p>Sélectionnez la caractéristique dans la barre en bas et cliquez pour lancer votre dé. Un résultat ≤ à votre stat = réussite (halo doré). Un résultat > à votre stat = échec (halo rouge).</p>
-        </div>
+      </div>
+
+      <div class="rules-section">
+        <h2>Action</h2>
+        <p>Chaque action dans ce jeu se fait en lançant 3 dés dont les stats correspondent l'action. Des exemples d'actions et de dés sont présentés dans l'onglet à droite.</p>
+          <h3>Action n'impliquant qu'un seul personnage</h3>
+          <p>Si l'action n'implique qu'un seul personnage, celui-ci lance ses dés correspondants à l'action qu'il souhaite réaliser. Le MJ peut choisir les dés les plus appropriés.</p>
+          <h3>Action contre un autre personnage</h3>
+          <p>Si l'action que vous voulez effectuer va à l'encontre de la volonté d'un autre personnage, alors celui-ci va également lancer 3 dés avec les faiblesses de vos dés. 
+            On compte alors le nombre de dés réussi par personnage. On calcule alors nb_dés_attaquants - nb_dés_défenseurs :</p>
+          <ul>
+           <li>+2 et plus :  réussite critique</li>
+           <li>+1 : réussite</li>
+           <li>0 : Relancez un dé au choix de l'attaquant. Si il y a encore égalite, il ne se passe rien (échec sans pénalité)</li>
+           <li>-1 : échec </li>
+           <li>-2 et moins : échec critique
+          </ul>
+          <h3>Action de groupe</h3>
+            <p>Tous les personnages lancent les 3 dés. Selon la situation , le MJ peut choisir de :</p>
+          <ul>
+          <li>Garder le ou les score(s) le plus haut</li>
+          <li>Garder le ou les score(s) le plus bas</li>
+          <li>Pénaliser ou avantager certains joueurs selon leur score individuel.</li>
+          </ul>
       </div>
 
       <div class="rules-section">
@@ -557,10 +579,7 @@ body {
         <p><em>— Placeholder —</em><br>Décrivez ici le déroulement d'un tour, l'initiative, les actions disponibles, etc.</p>
       </div>
 
-      <div class="rules-section">
-        <h3>Combat</h3>
-        <p><em>— Placeholder —</em><br>Règles de combat, attaque, défense, dégâts…</p>
-      </div>
+
 
       <div class="rules-section">
         <h3>Magie</h3>
